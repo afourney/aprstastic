@@ -1,0 +1,11 @@
+gateway:
+  call_sign: N0CALL           # Radio call sign of the gateway itself (analogy, iGate's call sign) 
+  aprsis_passcode: 12345      # APRS-IS passcode. Search Google for how to get this
+  meshtastic_interface:       # Only serial devices are supported right now
+    type: serial
+    #device: /dev/ttyACM0      # Name of the serial device if more than one
+
+licensed_operators:           # Mapping of Meshtastic device IDs to call signs
+  "!12345678": NOCALL-1
+#  "!87654321": NOCALL-2
+#  "!12121212": NOCALL-3
