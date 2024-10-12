@@ -25,16 +25,41 @@ inerface = None
 aprs = None
 id_to_call_signs = {}
 reply_to = {}
+spotted = {}
 
 def onReceive(packet, interface):
     fromId = packet.get("fromId", None)
     toId = packet.get("toId", None)
     portnum = packet.get("decoded", {}).get("portnum")
-    print(f"{fromId} -> {toId}: {portnum}")
+    logging.debug(f"{fromId} -> {toId}: {portnum}")
 
-    if portnum == "TEXT_MESSAGE_APP" and toId == my_id and fromId in id_to_call_signs:
+    if portnum == "TEXT_MESSAGE_APP":
+        if "decoded" not in packet:
+            # Can't read it
+            return
+
         message_bytes = packet['decoded']['payload']
         message_string = message_bytes.decode('utf-8')
+
+        if toId == "^all" and message_string.lower().strip().startswith("aprs?"):
+            send_mesh_message(fromId, "APRS-tastic Gateway available here. Welcome. Reply '?' for more info.")
+            spotted[fromId] = True
+            return
+
+        if toId != my_id:
+            # Not for me
+            return
+
+        spotted[fromId] = True
+
+        if message_string.strip() == "?":
+            # TODO
+            send_mesh_message(fromId, "See https://github.com/afourney/aprstastic for more.")
+            return
+
+        if fromId not in id_to_call_signs:
+            send_mesh_message(fromId, "Unknown device. Please register your call sign with the gateway owner.")
+            return
 
         m = re.search(r"^([A-Za-z0-9]+(\-[A-Za-z0-9]+)?):(.*)$", message_string)
         if m:
@@ -42,11 +67,18 @@ def onReceive(packet, interface):
             reply_to[fromId] = tocall
             message = m.group(3).strip()
             send_aprs_message(id_to_call_signs[fromId], tocall, message)
+            return
         elif fromId in reply_to:
             send_aprs_message(id_to_call_signs[fromId], reply_to[fromId], message_string)
+            return
         else:
-            logging.error("Unable to parge message: " + message_string)
+            send_mesh_message(fromId, "Please prefix your message with a the dest callsign. E.g., 'WNLK-1: hello'")
+            return
 
+    # At this point the message was not handled yet. Announce yourself
+    if fromId in id_to_call_signs and fromId not in spotted:
+        send_mesh_message(fromId, "APRS-tastic Gateway available here. Welcome. Reply '?' for more info.")
+        spotted[fromId] = True
 
 def callback(packet):
     if packet.get("format") == "message":
