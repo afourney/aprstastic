@@ -52,6 +52,8 @@ and it would assume a reply to `WLNK-1`, producing the following response:
 NOCALL-1: 10/11/2024 23:52:30 No messages.
 ```
 
+These interactions are demonstrated in the following YouTube video [https://www.youtube.com/watch?v=qUvpZUwl-cY](https://www.youtube.com/watch?v=qUvpZUwl-cY)
+
 Each gateway mimics an iGate, and can support multiple Meshtastic users, as long as their call signs and devices are pre-registered.
 
 ## Compliance
@@ -59,7 +61,7 @@ aprstastic only allows messages to transit if they are found in the client devic
 
 
 ## Future Plans
-The clear weakness of this gateway is the need to register devices in order for the call sign mapping to work. If every node administrator needs to manage this list, then the system will not scale (and maybe this is fine to control traffic). However, one compelling possibility is to create a central registry where, call signs can be registered to nodes, and the gateways could then subscribe to this list. This would allow a degree of roamin.
+The clear weakness of this gateway is the need to register devices in order for the call sign mapping to work. If every node administrator needs to manage this list, then the system will not scale (and maybe this is fine to control traffic). However, one compelling possibility is to create a central registry where, call signs can be registered to nodes, and the gateways could then subscribe to this list. This would allow a degree of roaming without much need for coordination.
 
 Additional future plans include support for Meshtastic position beacons, and weather reports (both of which have analogs in APRS).
 
