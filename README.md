@@ -12,7 +12,9 @@
 > This is a minimum viable example of the concept of an APRS to Meshtastic gateway. The code is of poor quality, and not up to any standard, but it serves to prove the possibility. Star this repo for future updates -- I plan to build this concept out appropriately to a stable turnkey appliance.
 
 ## New!
+:fire: 2-minute [YouTube demo](https://www.youtube.com/watch?v=qUvpZUwl-cY)
 :fire: Send 'aprs?' on any public Meshtastic channel (e.g., LongFast), to query if a gateway is available in your area!
+:fire: Design doc and future plans: [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
 
 ## Introduction
 Here is a proof of concept of a Meshtastic to APRS gateway for Meshtastic users **with amateur radio licenses**. It runs on stock Meshtastic (915MHz, not HAM band or mode), but uses a pre-registered association between Meshtastic device MAC addresses and amateur radio callsign+SSID to keep things properly attributed and compliant with FCC regulations. To this end, operation requires at least two meshtastic devices: one to serve as the gateway, and the others are the clients. Each client is registered in the `config.yaml` as seen in the following example:
