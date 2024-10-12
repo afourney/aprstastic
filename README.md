@@ -65,6 +65,8 @@ The clear weakness of this gateway is the need to register devices in order for 
 
 Additional future plans include support for Meshtastic position beacons, and weather reports (both of which have analogs in APRS).
 
+For more details see [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
+
 
 ## Installation
 
