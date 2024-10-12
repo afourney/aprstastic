@@ -13,6 +13,7 @@ import yaml
 import serial.tools.list_ports
 import meshtastic.stream_interface
 import meshtastic.serial_interface
+from datetime import datetime
 from meshtastic.util import message_to_json
 
 logging.basicConfig(level=logging.INFO) # level=10
@@ -33,7 +34,23 @@ def onReceive(packet, interface):
     portnum = packet.get("decoded", {}).get("portnum")
     logging.debug(f"{fromId} -> {toId}: {portnum}")
 
-    if portnum == "TEXT_MESSAGE_APP":
+    if portnum == "POSITION_APP":
+        if "decoded" not in packet:
+            return
+
+        if fromId not in id_to_call_signs:
+            return
+
+        position = packet.get("decoded", {}).get("position")
+        send_aprs_position(
+            id_to_call_signs[fromId],
+            position.get("latitude"),
+            position.get("longitude"),
+            position.get("time"),
+            "aprstastic: " + fromId
+        )
+
+    elif portnum == "TEXT_MESSAGE_APP":
         if "decoded" not in packet:
             # Can't read it
             return
@@ -121,6 +138,30 @@ def send_aprs_ack(fromcall, tocall, messageId):
     while len(tocall) < 9:
         tocall += " "
     aprs.sendall(fromcall + ">APRS,WIDE1-1,qAR,TESTCAL::" + tocall + ":ack" + messageId)
+
+
+def send_aprs_position(fromcall, lat, lon, t, message):
+    aprs_lat_ns   = "N" if lat >= 0 else "S"
+    lat = abs(lat)
+    aprs_lat_deg  = int(lat)
+    aprs_lat_min  = float((lat - aprs_lat_deg) * 60)
+    aprs_lat = f"%02d%02.2f%s" % (aprs_lat_deg, aprs_lat_min, aprs_lat_ns)
+
+    aprs_lon_ns   = "E" if lon >= 0 else "W"
+    lon = abs(lon)
+    aprs_lon_deg  = abs(int(lon))
+    aprs_lon_min  = float((lon - aprs_lon_deg) * 60)
+    aprs_lon = f"%03d%05.2f%s" % (aprs_lon_deg, aprs_lon_min, aprs_lon_ns)
+
+    aprs_ts = datetime.utcfromtimestamp(t).strftime('%d%H%M')
+    if len(aprs_ts) == 5:
+        aprs_ts = "0" + aprs_ts + "z"
+    else:
+        aprs_ts = aprs_ts + "z"
+
+    aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
+    logging.info(f"Sending to APRS: {aprs_msg}")
+    aprs.sendall(fromcall + ">APRS,WIDE1-1,qAR,TESTCAL:"+aprs_msg)
 
 
 def send_mesh_message(destid, message):
