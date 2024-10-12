@@ -13,7 +13,9 @@
 
 ## New!
 :fire: 2-minute [YouTube demo](https://www.youtube.com/watch?v=qUvpZUwl-cY)
+
 :fire: Send 'aprs?' on any public Meshtastic channel (e.g., LongFast), to query if a gateway is available in your area!
+
 :fire: Design doc and future plans: [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
 
 ## Introduction
