@@ -4,7 +4,35 @@ import os
 import sys
 from ._gateway import Gateway
 
-logging.basicConfig(level=logging.INFO)
+# Set up logging
+################
+logger = logging.getLogger("aprstastic")
+logging.root.setLevel(logging.DEBUG)
+
+
+class LocalDebugFilter(logging.Filter):
+    """
+    Only show debug messages if they are from arpstastic
+    """
+
+    def filter(self, record):
+        if record.name == "aprstastic":
+            return True
+        else:
+            return record.levelno > logging.DEBUG
+
+
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+stream_handler.addFilter(LocalDebugFilter())
+logging.root.addHandler(stream_handler)
+
+# file_handler = logging.FileHandler("aprstastic.log")
+# file_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+# file_handler.addFilter(LocalDebugFilter())
+# logging.root.addHandler(file_handler)
+########
+
 
 # Try to find the config file
 config_path = None
@@ -37,6 +65,7 @@ licensed_operators: # Mapping of Meshtastic device IDs to call signs
         )
         sys.exit(1)
 
+logger.debug(f"Config file: {config_path}")
 with open(config_path, "r") as file:
     config = yaml.safe_load(file)
 

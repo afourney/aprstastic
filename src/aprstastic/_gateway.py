@@ -18,6 +18,8 @@ from meshtastic.util import message_to_json
 from queue import Queue, Empty
 from ._aprs_client import APRSClient
 
+logger = logging.getLogger("aprstastic")
+
 MQTT_TOPIC = "meshtastic.receive"
 
 
@@ -44,6 +46,7 @@ class Gateway(object):
             .get("meshtastic_interface", {})
             .get("device")
         )
+
         self._interface = self._get_interface(device)
         if self._interface is None:
             raise ValueError("No meshtastic device detected or specified.")
@@ -52,9 +55,6 @@ class Gateway(object):
             self._mesh_rx_queue.put(packet)
 
         pubsub.pub.subscribe(on_recv, MQTT_TOPIC)
-        node_info = self._interface.getMyNodeInfo()
-        self._gateway_id = node_info.get("user", {}).get("id")
-        logging.info(f"Gateway device id: {self._gateway_id}")
 
         self._gateway_call_sign = (
             self._config.get("gateway", {}).get("call_sign", "").upper().strip()
@@ -66,6 +66,14 @@ class Gateway(object):
             aprsis_passcode,
             "g/" + "/".join(self._filtered_call_signs),
         )
+
+        logger.debug("Pausing for 2 seconds...")
+        time.sleep(2.0)
+        logger.debug("Starting main loop.")
+
+        node_info = self._interface.getMyNodeInfo()
+        self._gateway_id = node_info.get("user", {}).get("id")
+        logger.debug(f"Gateway device id: {self._gateway_id}")
 
         while True:
             # Read a meshastic packet
@@ -95,7 +103,7 @@ class Gateway(object):
                 device = ports[0].device
         if device is not None:
             dev = meshtastic.serial_interface.SerialInterface(device)
-            logging.info(f"Connected to: {device}")
+            logger.info(f"Connected to: {device}")
             return dev
         else:
             return None
@@ -104,7 +112,7 @@ class Gateway(object):
         fromId = packet.get("fromId", None)
         toId = packet.get("toId", None)
         portnum = packet.get("decoded", {}).get("portnum")
-        logging.info(f"{fromId} -> {toId}: {portnum}")
+        logger.info(f"{fromId} -> {toId}: {portnum}")
 
         # Record that we have spotted the ID
         should_announce = self._spotted(fromId)
@@ -214,7 +222,7 @@ class Gateway(object):
 
             # Is this an ack?
             if packet.get("response") == "ack":
-                logging.info(
+                logger.info(
                     f"Received ACK to {tocall}'s message #" + packet.get("msgNo", "")
                 )
                 return
@@ -224,7 +232,7 @@ class Gateway(object):
 
             # Message was sent to the gateway itself. Print it. Do nothing else.
             if tocall == self._gateway_call_sign:
-                logging.info(
+                logger.info(
                     f"Received APRS message addressed to the gateway ({self._gateway_call_sign}): {packet['raw']}"
                 )
                 return
@@ -259,7 +267,7 @@ class Gateway(object):
             + "{"
             + str(random.randint(0, 999))
         )
-        logging.info("Sending APRS: " + packet)
+        logger.debug("Sending APRS: " + packet)
         self._aprs_client.send(packet)
 
     def _send_aprs_ack(self, fromcall, tocall, messageId):
@@ -295,13 +303,13 @@ class Gateway(object):
             aprs_ts = aprs_ts + "z"
 
         aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
-        logging.info(f"Sending to APRS: {aprs_msg}")
+        logger.debug(f"Sending to APRS: {aprs_msg}")
         self._aprs_client.send(
             fromcall + ">APRS,WIDE1-1,qAR," + self._gateway_call_sign + ":" + aprs_msg
         )
 
     def _send_mesh_message(self, destid, message):
-        logging.info(f"Sending to '{destid}': {message}")
+        logger.info(f"Sending to '{destid}': {message}")
         self._interface.sendText(
             text=message, destinationId=destid, wantAck=True, wantResponse=False
         )

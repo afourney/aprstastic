@@ -1,11 +1,15 @@
 import time
 import threading
 import aprslib
+import logging
 from aprslib.parsing import parse
 from aprslib.exceptions import ParseError, UnknownFormat
 from queue import Queue, Empty
 
-EPSILON = 0.001
+YIELD_DELAY = 0.001
+POLL_DELAY = 0.1
+
+logger = logging.getLogger("aprstastic")
 
 
 class APRSClient(object):
@@ -40,9 +44,9 @@ class APRSClient(object):
                 try:
                     return parse(packet)
                 except ParseError:
-                    print("ParseError: " + packet.strip())
+                    logger.error("ParseError: " + packet.strip())
                 except UnknownFormat:
-                    print("UnknownFormat: " + packet.strip())
+                    logger.error("UnknownFormat: " + packet.strip())
         except Empty:
             return None
 
@@ -63,12 +67,12 @@ class APRSClient(object):
             try:
                 # Client has not been created yet
                 if self._aprs is None:
-                    time.sleep(0.1)
+                    time.sleep(POLL_DELAY)
                     continue
 
                 # Client is not yet connected
                 if not self._aprs._connected:
-                    time.sleep(0.1)
+                    time.sleep(POLL_DELAY)
                     continue
 
                 # Read a packet
@@ -82,7 +86,7 @@ class APRSClient(object):
                 else:
                     self._aprs.sendall(packet)
             except Empty:
-                time.sleep(EPSILON)
+                time.sleep(YIELD_DELAY)
 
     def _rx_thread_body(self) -> None:
         self._aprs = aprslib.IS(self._login, passwd=self._passcode, port=14580)
