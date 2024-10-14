@@ -35,7 +35,7 @@ class Gateway(object):
         self._aprs_client = None
 
         self._reply_to = {}
-        self._spotted = {}
+        self._filtered_call_signs = []
        
 
     def run(self):
@@ -54,12 +54,8 @@ class Gateway(object):
 
         self._gateway_call_sign = self._config.get("gateway", {}).get("call_sign", "").upper().strip()
         aprsis_passcode = self._config.get("gateway", {}).get("aprsis_passcode")
-
-        filters = [ c for c in self._id_to_call_signs.values() ]
-        filters.append(self._gateway_call_sign) # Add ourself back in
-        filters = "g/" + "/".join(filters)
-
-        self._aprs_client = APRSClient(self._gateway_call_sign, aprsis_passcode, filters)
+        self._filtered_call_signs.append(self._gateway_call_sign)
+        self._aprs_client = APRSClient(self._gateway_call_sign, aprsis_passcode, "g/" + "/".join(self._filtered_call_signs))
 
         while True:
 
@@ -101,6 +97,9 @@ class Gateway(object):
         portnum = packet.get("decoded", {}).get("portnum")
         logging.info(f"{fromId} -> {toId}: {portnum}")
 
+        # Record that we have spotted the ID
+        should_announce = self._spotted(fromId)
+
         if portnum == "POSITION_APP":
 
             if fromId not in self._id_to_call_signs:
@@ -121,23 +120,39 @@ class Gateway(object):
 
             if toId == "^all" and message_string.lower().strip().startswith("aprs?"):
                 self._send_mesh_message(fromId, "APRS-tastic Gateway available here. Welcome. Reply '?' for more info.")
-                self._spotted[fromId] = True
                 return
 
             if toId != self._gateway_id:
                 # Not for me
                 return
 
-            self._spotted[fromId] = True
-
             if message_string.strip() == "?":
-                # TODO
-                self._send_mesh_message(fromId, "See https://github.com/afourney/aprstastic for more.")
+                # It seems to send in the opposite order? LIFO?
+                self._send_mesh_message(fromId, "Send and receive APRS messages by registering your call sign. HAM license required.\n\nReply with:\n!register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1\n\nSee https://github.com/afourney/aprstastic for more.")
+                return
+
+            if message_string.lower().strip().startswith("!register"):
+                # Allow operatores to join
+                m = re.search(r"^!register:?\s+([a-z0-9]{4,7}\-[0-9]{1,2})$", message_string.lower().strip())
+                if m:
+                    call_sign = m.group(1).upper()
+                    if fromId in self._id_to_call_signs:
+                        # Update
+                        self._id_to_call_signs[fromId] = call_sign
+                        self._send_mesh_message(fromId, "Registration updated.")
+                    else:
+                        # New
+                        self._id_to_call_signs[fromId] = call_sign
+                        self._spotted(fromId)
+                        self._send_mesh_message(fromId, "Registered. Send APRS messages by replying here, and prefixing your message with the dest callsign. E.g., 'WLNK-1: hello' ")
+                else:
+                    self._send_mesh_message(fromId, "Invalid call sign + ssid.\nSYNTAX: !register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1")
                 return
 
             if fromId not in self._id_to_call_signs:
-                self._send_mesh_message(fromId, "Unknown device. Please register your call sign with the gateway owner.")
+                self._send_mesh_message(fromId, "Unknown device. HAM license required!\nRegister by replying with:\n!register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1")
                 return
+
 
             m = re.search(r"^([A-Za-z0-9]+(\-[A-Za-z0-9]+)?):(.*)$", message_string)
             if m:
@@ -150,13 +165,13 @@ class Gateway(object):
                 self._send_aprs_message(self._id_to_call_signs[fromId], self._reply_to[fromId], message_string)
                 return
             else:
-                self._send_mesh_message(fromId, "Please prefix your message with a the dest callsign. E.g., 'WLNK-1: hello'")
+                self._send_mesh_message(fromId, "Please prefix your message with the dest callsign. E.g., 'WLNK-1: hello'")
                 return
 
         # At this point the message was not handled yet. Announce yourself
-        if fromId in self._id_to_call_signs and fromId not in self._spotted:
+        if should_announce:
             self._send_mesh_message(fromId, "APRS-tastic Gateway available here. Welcome. Reply '?' for more info.")
-            self._spotted[fromId] = True
+
 
     def _process_aprs_packet(self, packet):
         if packet.get("format") == "message":
@@ -238,3 +253,25 @@ class Gateway(object):
             wantAck=True,
             wantResponse=False
         )
+
+    
+    def _spotted(self, node_id):
+        """
+        Checks if the node is registered, and newly spotted -- in which
+        case we need to update the APRS filters, and also greet the user.
+        In this case, it returns true. Otherwise, false.
+        """
+
+        # We spotted them, but they aren't registered
+        if node_id not in self._id_to_call_signs:
+            return False
+
+        call_sign = self._id_to_call_signs[node_id]
+        
+        if call_sign in self._filtered_call_signs:
+            return False
+
+        # Ok it's new, update the filters
+        self._filtered_call_signs.append(call_sign)
+        self._aprs_client.set_filter("g/" + "/".join(self._filtered_call_signs))
+        return True

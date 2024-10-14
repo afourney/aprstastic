@@ -69,6 +69,11 @@ class APRSClient(object):
                     time.sleep(0.1)
                     continue
 
+                # Client is not yet connected
+                if not self._aprs._connected:
+                    time.sleep(0.1)
+                    continue
+
                 # Read a packet
                 packet = self._tx_queue.get(block=False)
                 if isinstance(packet, _UpdateFilters):
@@ -86,7 +91,6 @@ class APRSClient(object):
     def _rx_thread_body(self) -> None:
         self._aprs = aprslib.IS(self._login, passwd=self._passcode, port=14580)
         if self._filters is not None:
-            print(self._filters)
             self._aprs.set_filter(self._filters)
         self._aprs.connect()
         self._aprs.consumer(lambda x: self._rx_queue.put(x, block=True), raw=True, blocking=True)
