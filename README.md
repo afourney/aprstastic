@@ -16,6 +16,8 @@
 
 :fire: Over-the-air discovery and registration now supported. See image below.
 
+:fire: Registrations are now (optionally) beaconed to MESHID-01 to facilitate a global roaming profile.
+
 :fire: Design doc and future plans: [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
 
 ## Introduction
@@ -66,11 +68,9 @@ aprstastic only allows messages to transit if they are found in the client devic
 
 ## Future Plans
 
-The clear weakness of this gateway is the need to register devices in order for the call sign mapping to work. If every node administrator needs to manage this list, then the system will not scale (and maybe this is fine to control traffic). However, one compelling possibility is to create a central registry where, call signs can be registered to nodes, and the gateways could then subscribe to this list. This would allow a degree of roaming without much need for coordination.
+The clear weakness of this gateway is the need to register devices in order for the call sign mapping to work. If every node administrator needs to manage this list, then the system will not scale (and maybe this is fine to control traffic). However, one compelling possibility is to create a central registry where, call signs can be registered to nodes, and the gateways could then subscribe to this list. This would allow a degree of roaming without much need for coordination. To support this, all dynamic registrations (`!register` command) are optionally beaconed to APRS-IS, to facilitate discovery. Such beacons are expected to be rare -- at most once per device.
 
-Additional future plans include support for Meshtastic position beacons, and weather reports (both of which have analogs in APRS).
-
-For more details see [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
+For more details, and other upcoming features, see [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
 
 ## Installation
 

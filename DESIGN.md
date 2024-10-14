@@ -14,9 +14,9 @@ Some Meshtastic devices have environment sensors. These have direct analogs on A
 
 ### Central Registry
 
-**Over-the-air registration is now supported via the '!register' command**
+**Over-the-air registration is now supported via the '!register' command, and registrations are optionally beaconed to [MESHID-01](https://aprs.fi/?c=message&call=MESHID-01)**
 
-A limitation of the current design is that the `licensed_operator` list is part of the configuration, and must be set and updated by all gateway administrators. If there was a central registry maintaining this mapping, then gateways could subscribe or download it, allowing for roaming. This could be as simple as a Google Forms sheet, or perhaps submitting PRs to a GitHub repo. It's possible APRS-IS could even be used for this, if there was a standard format of announcing your Meshtastic device.
+A limitation of the current design is that the `licensed_operator` list is part of the configuration, and must be set and updated by all gateway administrators. If there was a central registry maintaining this mapping, then gateways could subscribe or download it, allowing for roaming. To support this, new registrations are optionally beaconed to APRS-IS my message to call sign [MESHID-01](https://aprs.fi/?c=message&call=MESHID-01). The will be aggregated into central registrations file, which will be queried in a future update. This behavior can be disabled in the `config.yml` file.
 
 ### Discovery
 

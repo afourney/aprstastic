@@ -4,6 +4,8 @@ gateway:
   meshtastic_interface: # Only serial devices are supported right now
     type: serial
     #device: /dev/ttyACM0      # Name of the serial device if more than one
+  #logdir: /var/log/aprstastic # Where should logs be stored?
+  beacon_registrations: true # Beacon new registrations to APRS-IS to facilitate discovery
 
 licensed_operators: # Mapping of Meshtastic device IDs to call signs
   "!12345678": NOCALL-1

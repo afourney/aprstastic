@@ -21,12 +21,13 @@ from ._aprs_client import APRSClient
 logger = logging.getLogger("aprstastic")
 
 MQTT_TOPIC = "meshtastic.receive"
+REGISTRATION_BEACON = "MESHID-01"
 
 
 class Gateway(object):
     def __init__(self, config):
         self._config = config
-        self._id_to_call_signs = config.get("licensed_operators")
+        self._id_to_call_signs = config.get("licensed_operators", {})
 
         self._gateway_id = None
         self._gateway_call_sign = None
@@ -38,6 +39,7 @@ class Gateway(object):
 
         self._reply_to = {}
         self._filtered_call_signs = []
+        self._beacon_registrations = False
 
     def run(self):
         # Connect to the Meshtastic device
@@ -60,6 +62,9 @@ class Gateway(object):
         logger.debug(f"Gateway device id: {self._gateway_id}")
 
         # Create an initial list of known call signs based on the device node database
+        self._beacon_registrations = self._config.get("gateway", {}).get(
+            "beacon_registrations", True
+        )
         self._gateway_call_sign = (
             self._config.get("gateway", {}).get("call_sign", "").upper().strip()
         )
@@ -190,6 +195,13 @@ class Gateway(object):
                             fromId,
                             "Registered. Send APRS messages by replying here, and prefixing your message with the dest callsign. E.g., 'WLNK-1: hello' ",
                         )
+                    # Beacon the registration to APRS-IS to facilitate building a shared roaming mapping
+                    # which will be queried in future updates to aprstastic.
+                    if self._beacon_registrations:
+                        logger.info(
+                            f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
+                        )
+                        self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
                 else:
                     self._send_mesh_message(
                         fromId,
@@ -239,7 +251,7 @@ class Gateway(object):
 
             # Is this an ack?
             if packet.get("response") == "ack":
-                logger.info(
+                logger.debug(
                     f"Received ACK to {tocall}'s message #" + packet.get("msgNo", "")
                 )
                 return
