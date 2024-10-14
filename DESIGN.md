@@ -10,6 +10,8 @@ Most APRS traffic consists of position beaconing. Meshtastic devices are well-su
 Some Meshtastic devices have environment sensors. These have direct analogs on APRS and can be gated following a similar protocol to the above-mentioned position reports.
 
 ### Central Registry
+**Over-the-air registration is now supported via the '!register' command**
+
 A limitation of the current design is that the `licensed_operator` list is part of the configuration, and must be set and updated by all gateway administrators. If there was a central registry maintaining this mapping, then gateways could subscribe or download it, allowing for roaming. This could be as simple as a Google Forms sheet, or perhaps submitting PRs to a GitHub repo. It's possible APRS-IS could even be used for this, if there was a standard format of announcing your Meshtastic device.
 
 ### Discovery
