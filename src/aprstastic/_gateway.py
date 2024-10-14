@@ -55,12 +55,30 @@ class Gateway(object):
             self._mesh_rx_queue.put(packet)
 
         pubsub.pub.subscribe(on_recv, MQTT_TOPIC)
+        node_info = self._interface.getMyNodeInfo()
+        self._gateway_id = node_info.get("user", {}).get("id")
+        logger.debug(f"Gateway device id: {self._gateway_id}")
 
+        # Create an initial list of known call signs based on the device node database
         self._gateway_call_sign = (
             self._config.get("gateway", {}).get("call_sign", "").upper().strip()
         )
-        aprsis_passcode = self._config.get("gateway", {}).get("aprsis_passcode")
         self._filtered_call_signs.append(self._gateway_call_sign)
+        for node in self._interface.nodesByNum.values():
+            presumptive_id = f"!{node['num']:08x}"
+
+            if presumptive_id not in self._id_to_call_signs:
+                continue
+
+            # Heard more than a day ago
+            last_heard = node.get("lastHeard")
+            if last_heard is None or last_heard + 3600 * 24 < time.time():
+                continue
+
+            self._filtered_call_signs.append(self._id_to_call_signs[presumptive_id])
+
+        # Connect to APRS IS
+        aprsis_passcode = self._config.get("gateway", {}).get("aprsis_passcode")
         self._aprs_client = APRSClient(
             self._gateway_call_sign,
             aprsis_passcode,
@@ -70,10 +88,6 @@ class Gateway(object):
         logger.debug("Pausing for 2 seconds...")
         time.sleep(2.0)
         logger.debug("Starting main loop.")
-
-        node_info = self._interface.getMyNodeInfo()
-        self._gateway_id = node_info.get("user", {}).get("id")
-        logger.debug(f"Gateway device id: {self._gateway_id}")
 
         while True:
             # Read a meshastic packet
@@ -112,7 +126,10 @@ class Gateway(object):
         fromId = packet.get("fromId", None)
         toId = packet.get("toId", None)
         portnum = packet.get("decoded", {}).get("portnum")
-        logger.info(f"{fromId} -> {toId}: {portnum}")
+
+        # Don't bother logging my telemetry
+        if portnum != "TELEMETRY_APP" or fromId != self._gateway_id:
+            logger.info(f"{fromId} -> {toId}: {portnum}")
 
         # Record that we have spotted the ID
         should_announce = self._spotted(fromId)
