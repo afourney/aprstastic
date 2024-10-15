@@ -32,6 +32,23 @@ These interactions are demonstrated in the following YouTube video [https://www.
 
 Each gateway mimics an iGate, and can support multiple Meshtastic users, as long as their call signs and devices are pre-registered.
 
+## Installation, Configuration, and Running
+
+```console
+pip install aprstastic
+```
+
+```console
+python -m aprstastic
+```
+
+The first time aprstastic runs, it will create a sample `aprstastic.yaml` file. **Edit the sample**, then run it again.
+
+```console
+nano ~/.config/aprstastic/aprstastic.yaml
+python -m aprstastic
+```
+
 ## Addressing APRS messages
 
 How does the gateway know the addressee ("to" address) of APRS packets when all Meshtastic messages are addressed to the gateway device?
@@ -71,38 +88,6 @@ aprstastic only allows messages to transit if they are found in the client devic
 The clear weakness of this gateway is the need to register devices in order for the call sign mapping to work. If every node administrator needs to manage this list, then the system will not scale (and maybe this is fine to control traffic). However, one compelling possibility is to create a central registry where, call signs can be registered to nodes, and the gateways could then subscribe to this list. This would allow a degree of roaming without much need for coordination. To support this, all dynamic registrations (`!register` command) are optionally beaconed to [APRS-IS](https://aprs.fi/?c=message&call=MESHID-01), to facilitate discovery. Such beacons are expected to be rare -- at most once per device.
 
 For more details, and other upcoming features, see [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
-
-## Installation
-
-```console
-pip install aprstastic
-```
-
-## Configuration
-
-Copy `sample_config.yml` to `config.yml` and edit appropriately. Here is a sample:
-
-```yml
-gateway:
-  call_sign: N0CALL # Radio call sign of the gateway itself (analogy, iGate's call sign)
-  aprsis_passcode: 12345 # APRS-IS passcode. Search Google for how to get this
-  meshtastic_interface: # Only serial devices are supported right now
-    type: serial
-    device: /dev/ttyACM1 # Name of the serial device if more than one
-
-licensed_operators: # Mapping of Meshtastic device IDs to call signs
-  "!12345678": NOCALL-1
-  "!87654321": NOCALL-2
-  "!12121212": NOCALL-3
-```
-
-## Running
-
-Execute the following command at the console.
-
-```shell
-python -m aprstastic
-```
 
 ## License
 

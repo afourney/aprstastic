@@ -9,6 +9,7 @@ import logging
 import random
 import threading
 import re
+import os
 import serial.tools.list_ports
 import meshtastic.stream_interface
 import meshtastic.serial_interface
@@ -16,6 +17,7 @@ from datetime import datetime
 from meshtastic.util import message_to_json
 
 from queue import Queue, Empty
+from .__about__ import __version__
 from ._aprs_client import APRSClient
 
 logger = logging.getLogger("aprstastic")
@@ -27,7 +29,6 @@ REGISTRATION_BEACON = "MESHID-01"
 class Gateway(object):
     def __init__(self, config):
         self._config = config
-        self._id_to_call_signs = config.get("licensed_operators", {})
 
         self._gateway_id = None
         self._gateway_call_sign = None
@@ -40,6 +41,8 @@ class Gateway(object):
         self._reply_to = {}
         self._filtered_call_signs = []
         self._beacon_registrations = False
+
+        self._id_to_call_signs = self._load_call_signs()
 
     def run(self):
         # Connect to the Meshtastic device
@@ -175,6 +178,14 @@ class Gateway(object):
                 )
                 return
 
+            if message_string.strip() == "!id" or message_string.strip() == "!version":
+                # Let clients query the gateway call sign and version number
+                self._send_mesh_message(
+                    fromId,
+                    f"Gateway call sign: {self._gateway_call_sign}, Version: {__version__}",
+                )
+                return
+
             if message_string.lower().strip().startswith("!register"):
                 # Allow operatores to join
                 m = re.search(
@@ -195,13 +206,17 @@ class Gateway(object):
                             fromId,
                             "Registered. Send APRS messages by replying here, and prefixing your message with the dest callsign. E.g., 'WLNK-1: hello' ",
                         )
+
+                    # Persist changes
+                    self._save_call_signs()
+
                     # Beacon the registration to APRS-IS to facilitate building a shared roaming mapping
                     # which will be queried in future updates to aprstastic.
                     if self._beacon_registrations:
                         logger.info(
                             f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
                         )
-                        self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
+                        # self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
                 else:
                     self._send_mesh_message(
                         fromId,
@@ -363,3 +378,21 @@ class Gateway(object):
         self._filtered_call_signs.append(call_sign)
         self._aprs_client.set_filter("g/" + "/".join(self._filtered_call_signs))
         return True
+
+    # TEMPORARY: Will clean up in a future release
+    def _load_call_signs(self):
+        filename = os.path.join(
+            self._config.get("gateway", {}).get("data_dir"), "local_registrations.json"
+        )
+        if not os.path.isfile(filename):
+            return {}
+
+        with open(filename, "rt") as fh:
+            return json.loads(fh.read())
+
+    def _save_call_signs(self):
+        filename = os.path.join(
+            self._config.get("gateway", {}).get("data_dir"), "local_registrations.json"
+        )
+        with open(filename, "wt") as fh:
+            fh.write(json.dumps(self._id_to_call_signs, indent=4))
