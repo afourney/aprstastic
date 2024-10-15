@@ -72,35 +72,20 @@ The clear weakness of this gateway is the need to register devices in order for 
 
 For more details, and other upcoming features, see [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
 
-## Installation
+## Installation, Configuration, and Running
 
 ```console
 pip install aprstastic
 ```
 
-## Configuration
-
-Copy `sample_config.yml` to `config.yml` and edit appropriately. Here is a sample:
-
-```yml
-gateway:
-  call_sign: N0CALL # Radio call sign of the gateway itself (analogy, iGate's call sign)
-  aprsis_passcode: 12345 # APRS-IS passcode. Search Google for how to get this
-  meshtastic_interface: # Only serial devices are supported right now
-    type: serial
-    device: /dev/ttyACM1 # Name of the serial device if more than one
-
-licensed_operators: # Mapping of Meshtastic device IDs to call signs
-  "!12345678": NOCALL-1
-  "!87654321": NOCALL-2
-  "!12121212": NOCALL-3
+```shell
+python -m aprstastic
 ```
 
-## Running
-
-Execute the following command at the console.
+The first time aprstastic runs, it will create a sample `aprstastic.yaml` file. **Edit the sample**, then run it again.
 
 ```shell
+nano ~/.config/aprstastic/aprstastic.yaml
 python -m aprstastic
 ```
 
