@@ -184,7 +184,7 @@ def test_precompiled():
         "!00000004": "N0CALL-2",
     }
 
-    
+
 def _to_dict(registry):
     """
     Helper function to convert the registry into a dictionary
@@ -197,8 +197,9 @@ def _to_dict(registry):
 
 ##########################
 if __name__ == "__main__":
-   import logging
-   logging.basicConfig(level=logging.DEBUG)
-   test_initialize_registry()
-   test_inserts_and_updates()
-   test_precompiled()
+    import logging
+
+    logging.basicConfig(level=logging.DEBUG)
+    test_initialize_registry()
+    test_inserts_and_updates()
+    test_precompiled()
