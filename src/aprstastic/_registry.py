@@ -191,7 +191,10 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
                 response = requests.get(precompiled_data.get("url"))
                 response.raise_for_status()
                 precompiled_data = json.loads(response.text)
-                precompiled_data["download_timestamp"] = time.time()
+                precompiled_data["download_timestamp"] = now
+                precompiled_data["reported_timestamp"] = min(
+                    now, precompiled_data["reported_timestamp"]
+                )
             except:
                 logger.error(traceback.format_exc())
             # Save it
