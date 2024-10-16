@@ -4,6 +4,7 @@
 import os
 import json
 import sqlite3
+import time
 from aprstastic._registry import (
     CallSignRegistry,
     DATABASE_FILE,
@@ -45,3 +46,87 @@ def test_initialize_registry():
     rows = cursor.fetchall()
     assert len(rows) == 1
     conn.close()
+
+
+def test_inserts_and_updates():
+    db_file = os.path.join(data_dir, DATABASE_FILE)
+    precompiled_file = os.path.join(data_dir, PRECOMPILED_FILE)
+
+    # Start fresh
+    if os.path.isfile(db_file):
+        os.unlink(db_file)
+    if os.path.isfile(precompiled_file):
+        os.unlink(precompiled_file)
+
+    assert not os.path.isfile(db_file)
+    assert not os.path.isfile(precompiled_file)
+
+    # Initialize the registry
+    registry = CallSignRegistry(data_dir)
+    # Use only the database
+    registry._overrides = {}
+    registry._precompiled = {}
+    registry._rebuild()
+
+    # Make sure we are starting empty
+    assert len(registry) == 0
+    assert _to_dict(registry) == {}
+
+    # Add a registration 5 times, checking after each
+    for i in range(1, 6):
+        call_sign = f"N0CALL-{i}"
+        registry.add_registration("!00000000", call_sign, True)
+        assert len(registry) == 1
+        assert _to_dict(registry) == {"!00000000": call_sign}
+    registry.add_registration("!00000000", "N0CALL-1", True)
+
+    # Now update the device IDs
+    for i in range(1, 6):
+        device_id = f"!0000000{i}"
+        registry.add_registration(device_id, "N0CALL-1", True)
+        assert len(registry) == 1
+        assert _to_dict(registry) == {device_id: "N0CALL-1"}
+    registry.add_registration("!00000000", "N0CALL-1", True)
+
+    # Wait a second, then do the same for beacons
+    time.sleep(1.1)
+    for i in range(6, 11):
+        call_sign = f"N0CALL-{i}"
+        registry.add_registration("!00000000", call_sign, False)
+        assert len(registry) == 1
+        assert _to_dict(registry) == {"!00000000": call_sign}
+    registry.add_registration("!00000000", "N0CALL-1", False)
+
+    for i in range(1, 6):
+        device_id = f"!0000000{i}"
+        registry.add_registration(device_id, "N0CALL-1", False)
+        assert len(registry) == 1
+        assert _to_dict(registry) == {device_id: "N0CALL-1"}
+    registry.add_registration("!00000000", "N0CALL-1", False)
+
+    # Add a bunch more registrations
+    registry.add_registration("!00000002", "N0CALL-2", True)
+    registry.add_registration("!00000003", "N0CALL-3", True)
+    registry.add_registration("!00000004", "N0CALL-4", True)
+    registry.add_registration("!00000005", "N0CALL-5", False)
+    registry.add_registration("!00000006", "N0CALL-6", False)
+    registry.add_registration("!00000007", "N0CALL-7", False)
+    assert _to_dict(registry) == {
+        "!00000000": "N0CALL-1",
+        "!00000002": "N0CALL-2",
+        "!00000003": "N0CALL-3",
+        "!00000004": "N0CALL-4",
+        "!00000005": "N0CALL-5",
+        "!00000006": "N0CALL-6",
+        "!00000007": "N0CALL-7",
+    }
+
+
+def _to_dict(registry):
+    """
+    Helper function to convert the registry into a dictionary
+    """
+    d = dict()
+    for k in registry:
+        d[k] = registry[k]
+    return d
