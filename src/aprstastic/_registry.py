@@ -125,8 +125,8 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         Updates (by rebuilding), the in-memory copy of the merged database, applying all rules.
         """
         cursor = self._db_conn.cursor()
-        self._merged = dict()
-        self._merged.update(self._precompiled)
+        merge_id = dict()
+        merge_id.update(self._precompiled)
 
         beaconed_registrations = dict()
         cursor.execute(
@@ -134,10 +134,14 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         )
         rows = cursor.fetchall()
         for row in rows:
-            if row[0] in self._merged:  # Check the timestamps
-                if self._merged[row[0]][1] > row[2]:
+            d_id = row[0]
+            cs = row[1]
+            ts = row[2]
+
+            if d_id in merge_id:  # Check the timestamps
+                if merge_id[d_id][1] > ts:
                     continue
-            self._merged[row[0]] = (row[1], row[2])
+            merge_id[d_id] = (cs, ts)
 
         local_registrations = dict()
         cursor.execute(
@@ -145,17 +149,31 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         )
         rows = cursor.fetchall()
         for row in rows:
-            if row[0] in self._merged:  # Check the timestamps
-                if self._merged[row[0]][1] > row[2]:
+            d_id = row[0]
+            cs = row[1]
+            ts = row[2]
+
+            if d_id in merge_id:  # Check the timestamps
+                if merge_id[d_id][1] > ts:
                     continue
-            self._merged[row[0]] = (row[1], row[2])
+            merge_id[d_id] = (cs, ts)
 
-        self._merged.update(self._overrides)
+        merge_id.update(self._overrides)
 
-        # Strip un-needed data
-        for k in self._merged:
-            self._merged[k] = self._merged[k][0]
+        # Because we merged from up to 4 sources, we might have multiple copies of call signs.
+        # Collapse them
+        merge_cs = dict()
+        for d_id in merge_id:
+            cs = merge_id[d_id][0]
+            ts = merge_id[d_id][1]
+            if cs not in merge_cs or merge_cs[cs][1] < ts:  # this record is newer
+                merge_cs[cs] = (d_id, ts)
 
+        # Flip it back and save it
+        self._merged = dict()
+        for cs in merge_cs:
+            d_id = merge_cs[cs][0]
+            self._merged[d_id] = cs
         cursor.close()
 
     def _load_overrides(self, file_path):
