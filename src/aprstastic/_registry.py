@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS VersionInfo (
 CREATE TABLE IF NOT EXISTS LocalRegistrations (
     device_id TEXT UNIQUE,
     call_sign TEXT UNIQUE,
+    settings_json TEXT,
     timestamp INTEGER
 )
 """
@@ -80,6 +81,7 @@ CREATE TABLE IF NOT EXISTS LocalRegistrations (
 CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
     device_id TEXT UNIQUE,
     call_sign TEXT UNIQUE,
+    settings_json TEXT,
     timestamp INTEGER
 )
 """
@@ -108,10 +110,10 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
 
         # Insert the new record
         insert_query = (
-            "INSERT INTO %s (device_id, call_sign, timestamp) VALUES (?, ?, ?);"
+            "INSERT INTO %s (device_id, call_sign, settings_json, timestamp) VALUES (?, ?, ?, ?);"
             % ("LocalRegistrations" if is_local else "BeaconedRegistrations",)
         )
-        cursor.execute(insert_query, (device_id, call_sign, int(time.time())))
+        cursor.execute(insert_query, (device_id, call_sign, None, int(time.time())))
 
         self._db_conn.commit()
         cursor.close()
@@ -204,7 +206,7 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         # Return tuples in the expected format
         result = dict()
         for t in precompiled_data["tuples"]:
-            result[t[0]] = (t[1], min(now, t[2]))  # No future timestamps
+            result[t[0]] = (t[1], min(now, t[3]))  # No future timestamps
         return result
 
     # Emulate a dictionary
