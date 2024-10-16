@@ -227,7 +227,7 @@ class Gateway(object):
                         logger.info(
                             f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
                         )
-                        # self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
+                        self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
                 else:
                     self._send_mesh_message(
                         fromId,
