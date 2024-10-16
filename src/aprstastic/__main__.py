@@ -52,22 +52,6 @@ if logs_dir is not None:
     file_handler.addFilter(LocalDebugFilter())
     logging.root.addHandler(file_handler)
 
-# cr = CallSignRegistry(config.get("gateway", {}).get("data_dir"))
-# import json
-# print(json.dumps(cr._merged, indent=4))
-#
-# print("cr['b_id_1729049990']: " + cr["b_id_1729049990"])
-# print("len(cr): " + str(len(cr)))
-# print("'b_id_1729049990' in cr: " + str('b_id_1729049990' in cr))
-# print("'b_id_172904999x' in cr: " + str('b_id_172904999x' in cr))
-# print("cr.keys(cr): " + str(cr.keys()))
-# print("cr.values(cr): " + str(cr.values()))
-# print("cr.items(cr): " + str(cr.items()))
-#
-# print()
-# for k in cr:
-#    print(f"Device ID: {k}, Call Sign: {cr[k]}")
-
 # Start the gateway
 gateway = Gateway(config)
 gateway.run()

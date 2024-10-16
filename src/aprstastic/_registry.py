@@ -4,7 +4,10 @@
 import sqlite3
 import logging
 import json
+import shutil
 import time
+import requests
+import traceback
 import os
 
 from .__about__ import __version__
@@ -14,8 +17,8 @@ logger = logging.getLogger("aprstastic")
 DATABASE_FILE = "registrations.db"
 
 # The precompiled registrations and overrides are not updated directly, and so are loaded from flat files
-OVERRIDES_FILE = "precompiled_registrations.json"
-PRECOMPILED_FILE = "registration_overrides.json"
+OVERRIDES_FILE = "registration_overrides.json"
+PRECOMPILED_FILE = "precompiled_registrations.json"
 
 
 class CallSignRegistry(object):
@@ -163,7 +166,43 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         """
         Return a copy of the precompiled registrations, which are loaded into memory.
         """
-        return dict()
+
+        # Doesn't exist, so copy the version that shipped with this app
+        if not os.path.isfile(file_path):
+            packaged_database = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "res", PRECOMPILED_FILE
+            )
+            logger.debug(
+                f"Copying packaged version of the precompiled database: {packaged_database}"
+            )
+            shutil.copyfile(packaged_database, file_path)
+
+        # Load the existing copy
+        precompiled_data = None
+        with open(file_path, "rt") as fh:
+            precompiled_data = json.loads(fh.read())
+        cached_timestamp = precompiled_data.get("download_timestamp", 0)
+        now = time.time()
+
+        # It's older than a day, so download a new one
+        if now - cached_timestamp > 3600 * 24:
+            logger.debug("Downloading precompiled database.")
+            try:
+                response = requests.get(precompiled_data.get("url"))
+                response.raise_for_status()
+                precompiled_data = json.loads(response.text)
+                precompiled_data["download_timestamp"] = time.time()
+            except:
+                logger.error(traceback.format_exc())
+            # Save it
+            with open(file_path, "wt") as fh:
+                fh.write(json.dumps(precompiled_data, indent=4))
+
+        # Return tuples in the expected format
+        result = dict()
+        for t in precompiled_data["tuples"]:
+            result[t[0]] = (t[1], min(now, t[2]))  # No future timestamps
+        return result
 
     # Emulate a dictionary
     def __getitem__(self, key):
