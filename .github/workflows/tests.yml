@@ -1,4 +1,4 @@
-name: Client Python Package
+name: Tests
 on: [push, pull_request]
 #  push:
 #  branches: ["main"]
