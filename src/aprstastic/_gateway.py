@@ -23,6 +23,8 @@ from ._registry import CallSignRegistry
 
 logger = logging.getLogger("aprstastic")
 
+from aprslib.parsing import parse
+
 MQTT_TOPIC = "meshtastic.receive"
 REGISTRATION_BEACON = "MESHID-01"
 
@@ -68,13 +70,21 @@ class Gateway(object):
         logger.debug(f"Gateway device id: {self._gateway_id}")
 
         # Create an initial list of known call signs based on the device node database
-        self._beacon_registrations = self._config.get("gateway", {}).get(
-            "beacon_registrations", True
-        )
+
+        # Myself
         self._gateway_call_sign = (
             self._config.get("gateway", {}).get("call_sign", "").upper().strip()
         )
         self._filtered_call_signs.append(self._gateway_call_sign)
+
+        # The registraion beacon
+        self._beacon_registrations = self._config.get("gateway", {}).get(
+            "beacon_registrations", True
+        )
+        if self._beacon_registrations:
+            self._filtered_call_signs.append(REGISTRATION_BEACON)
+
+        # Recently seen nodes
         for node in self._interface.nodesByNum.values():
             presumptive_id = f"!{node['num']:08x}"
 
@@ -272,7 +282,21 @@ class Gateway(object):
                 )
                 return
 
-            # Ack all messages
+            # Is this a registration beacon?
+            if tocall == REGISTRATION_BEACON:
+                mesh_id = packet.get("message_text", "").lower().strip()
+                if re.search(r"^![a-f0-9]{8}$", mesh_id):
+                    logger.info(
+                        f"Observed registration beacon: {mesh_id}: {fromcall}",
+                    )
+                    self._id_to_call_signs.add_registration(mesh_id, fromcall, False)
+                else:
+                    logger.error(
+                        f"Invalid registration beacon: {packet.get('raw')}",
+                    )
+                return
+
+            # Ack all remaining messages (which aren't themselves acks, and aren't beacons)
             self._send_aprs_ack(tocall, fromcall, packet.get("msgNo", ""))
 
             # Message was sent to the gateway itself. Print it. Do nothing else.
@@ -312,13 +336,13 @@ class Gateway(object):
             + "{"
             + str(random.randint(0, 999))
         )
-        logger.debug("Sending APRS: " + packet)
+        logger.debug("Sending to APRS: " + packet)
         self._aprs_client.send(packet)
 
     def _send_aprs_ack(self, fromcall, tocall, messageId):
         while len(tocall) < 9:
             tocall += " "
-        self._aprs_client.send(
+        packet = (
             fromcall
             + ">APRS,WIDE1-1,qAR,"
             + self._gateway_call_sign
@@ -327,6 +351,8 @@ class Gateway(object):
             + ":ack"
             + messageId
         )
+        logger.debug("Sending to APRS: " + packet)
+        self._aprs_client.send(packet)
 
     def _send_aprs_position(self, fromcall, lat, lon, t, message):
         aprs_lat_ns = "N" if lat >= 0 else "S"
@@ -348,10 +374,11 @@ class Gateway(object):
             aprs_ts = aprs_ts + "z"
 
         aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
-        logger.debug(f"Sending to APRS: {aprs_msg}")
-        self._aprs_client.send(
+        packet = (
             fromcall + ">APRS,WIDE1-1,qAR," + self._gateway_call_sign + ":" + aprs_msg
         )
+        logger.debug(f"Sending to APRS: {packet}")
+        self._aprs_client.send(packet)
 
     def _send_mesh_message(self, destid, message):
         logger.info(f"Sending to '{destid}': {message}")
