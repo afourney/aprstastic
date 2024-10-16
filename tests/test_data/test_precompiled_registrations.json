@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "package_version": "0.0.1a8",
+  "download_timestamp": 1728967625.0,
+  "reported_timestamp": 1728881225.0,
+  "url": null,
+  "tuples": [
+    ["!00000001", "N0CALL-1", null, 1728880000],
+    ["!00000002", "N0CALL-2", null, 1728790000]
+  ]
+}
