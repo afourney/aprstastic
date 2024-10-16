@@ -19,6 +19,7 @@ from meshtastic.util import message_to_json
 from queue import Queue, Empty
 from .__about__ import __version__
 from ._aprs_client import APRSClient
+from ._registry import CallSignRegistry
 
 logger = logging.getLogger("aprstastic")
 
@@ -42,7 +43,9 @@ class Gateway(object):
         self._filtered_call_signs = []
         self._beacon_registrations = False
 
-        self._id_to_call_signs = self._load_call_signs()
+        self._id_to_call_signs = CallSignRegistry(
+            config.get("gateway", {}).get("data_dir")
+        )
 
     def run(self):
         # Connect to the Meshtastic device
@@ -196,19 +199,17 @@ class Gateway(object):
                     call_sign = m.group(1).upper()
                     if fromId in self._id_to_call_signs:
                         # Update
-                        self._id_to_call_signs[fromId] = call_sign
+                        self._id_to_call_signs.add_registration(fromId, call_sign, True)
                         self._send_mesh_message(fromId, "Registration updated.")
                     else:
                         # New
-                        self._id_to_call_signs[fromId] = call_sign
+                        self._id_to_call_signs.add_registration(fromId, call_sign, True)
                         self._spotted(fromId)
                         self._send_mesh_message(
                             fromId,
                             "Registered. Send APRS messages by replying here, and prefixing your message with the dest callsign. E.g., 'WLNK-1: hello' ",
                         )
-
-                    # Persist changes
-                    self._save_call_signs()
+                    self._spotted(fromId)  # Run this again to update subscriptions
 
                     # Beacon the registration to APRS-IS to facilitate building a shared roaming mapping
                     # which will be queried in future updates to aprstastic.
@@ -378,21 +379,3 @@ class Gateway(object):
         self._filtered_call_signs.append(call_sign)
         self._aprs_client.set_filter("g/" + "/".join(self._filtered_call_signs))
         return True
-
-    # TEMPORARY: Will clean up in a future release
-    def _load_call_signs(self):
-        filename = os.path.join(
-            self._config.get("gateway", {}).get("data_dir"), "local_registrations.json"
-        )
-        if not os.path.isfile(filename):
-            return {}
-
-        with open(filename, "rt") as fh:
-            return json.loads(fh.read())
-
-    def _save_call_signs(self):
-        filename = os.path.join(
-            self._config.get("gateway", {}).get("data_dir"), "local_registrations.json"
-        )
-        with open(filename, "wt") as fh:
-            fh.write(json.dumps(self._id_to_call_signs, indent=4))
