@@ -24,8 +24,8 @@ class APRSClient(object):
         self._passcode = passcode
         self._filters = filters
         self._aprs = None
-        self._rx_queue = Queue()
-        self._tx_queue = Queue()
+        self._rx_queue: Queue = Queue()
+        self._tx_queue: Queue = Queue()
 
         self._rx_thread = threading.Thread(target=self._rx_thread_body)
         self._tx_thread = threading.Thread(target=self._tx_thread_body)
@@ -45,8 +45,10 @@ class APRSClient(object):
                     return parse(packet)
                 except ParseError:
                     logger.error("ParseError: " + packet.strip())
+                    return None
                 except UnknownFormat:
                     logger.error("UnknownFormat: " + packet.strip())
+                    return None
         except Empty:
             return None
 
@@ -92,10 +94,13 @@ class APRSClient(object):
         self._aprs = aprslib.IS(self._login, passwd=self._passcode, port=14580)
         if self._filters is not None:
             self._aprs.set_filter(self._filters)
-        self._aprs.connect()
-        self._aprs.consumer(
-            lambda x: self._rx_queue.put(x, block=True), raw=True, blocking=True
-        )
+        if self._aprs is not None:
+            self._aprs.connect()
+            self._aprs.consumer(
+                lambda x: self._rx_queue.put(x, block=True), raw=True, blocking=True
+            )
+        else:
+            raise ValueError("_aprs is None")
 
 
 class _UpdateFilters(object):
@@ -103,6 +108,6 @@ class _UpdateFilters(object):
     Class used to update the filters.
     """
 
-    def __init__(self, filters: str):
+    def __init__(self, filters: str | None):
         super().__init__()
         self.filters = filters
