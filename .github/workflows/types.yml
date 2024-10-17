@@ -15,4 +15,4 @@ jobs:
       - name: Install Hatch
         run: pipx install hatch
       - name: Run mypy
-        run: hatch types:check
+        run: hatch run types:check
