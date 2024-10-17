@@ -8,6 +8,9 @@
 > [!WARNING]
 > Legal operation of this software requires an amateur radio license and a valid call sign.
 
+> [!NOTE]
+> Code contributions are welcomed and appreciated. See [CONTRIBUTING.md](https://github.com/afourney/aprstastic/blob/main/CONTRIBUTING.md) for details.
+
 ## New!
 
 :fire: 2-minute [YouTube demo](https://www.youtube.com/watch?v=qUvpZUwl-cY)

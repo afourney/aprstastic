@@ -61,14 +61,12 @@ def init_config():
 
     # Try to get the data directory
     data_dir = config.get("data_dir")
-    if data_dir is None:
+    if data_dir is None or data_dir.strip() == "":
         data_dir = os.path.join(
             os.path.dirname(os.path.abspath(config_path)), DATA_SUBDIR
         )
-    elif data_dir.strip() == "":
-        data_dir = os.path.join(os.getcwd(), DATA_SUBDIR)
-    else:
-        data_dir = os.path.expanduser(data_dir)
+    elif not os.path.isabs(data_dir):
+        data_dir = os.path.join(os.path.dirname(os.path.abspath(config_path)), data_dir)
 
     logger.debug(f"data directory: {data_dir}")
     os.makedirs(data_dir, exist_ok=True)
@@ -76,14 +74,12 @@ def init_config():
 
     # Try to get the logging directory
     logs_dir = config.get("logs_dir")
-    if logs_dir is None:
+    if logs_dir is None or logs_dir.strip() == "":
         logs_dir = os.path.join(
             os.path.dirname(os.path.abspath(config_path)), LOGS_SUBDIR
         )
-    elif logs_dir.strip() == "":
-        logs_dir = os.path.join(os.getcwd(), LOGS_SUBDIR)
-    else:
-        logs_dir = os.path.expanduser(logs_dir)
+    elif not os.path.isabs(logs_dir):
+        logs_dir = os.path.join(os.path.dirname(os.path.abspath(config_path)), logs_dir)
 
     logger.debug(f"logs directory: {logs_dir}")
     os.makedirs(logs_dir, exist_ok=True)
