@@ -1,6 +1,6 @@
 # CONTRIBUTING
 
-Code contributions are welcome and appreciated. Just submit a PR!
+Code contributions are welcomed and appreciated. Just submit a PR!
 
 The current build environment uses `pre-commit`, and `hatch`.
 
