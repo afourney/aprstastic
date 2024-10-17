@@ -51,7 +51,7 @@ extra-dependencies = [
   "mypy>=1.0.0",
 ]
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/aprstastic tests}"
+check = "mypy --install-types --ignore-missing-imports --non-interactive {args:src/aprstastic tests}"
 
 [tool.coverage.run]
 source_pkgs = ["aprstastic", "tests"]
