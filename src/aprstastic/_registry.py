@@ -122,65 +122,75 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
 
     def _rebuild(self):
         """
-        Updates (by rebuilding), the in-memory copy of the merged database, applying all rules.
+        Updates (by rebuilding), the in-memory copy of the merged database, replaying actions in time order.
         """
         cursor = self._db_conn.cursor()
-        merge_id = dict()
-        merge_id.update(self._precompiled)
 
-        beaconed_registrations = dict()
+        # Append all the operations together
+        operations = [t for t in self._precompiled]
+        operations.extend([t for t in self._overrides])
+
         cursor.execute(
-            "SELECT device_id, call_sign, timestamp FROM BeaconedRegistrations;"
+            "SELECT device_id, call_sign, settings_json, timestamp FROM BeaconedRegistrations;"
         )
         rows = cursor.fetchall()
         for row in rows:
-            d_id = row[0]
-            cs = row[1]
-            ts = row[2]
+            operations.append((row[0], row[1], row[2], row[3]))
 
-            if d_id in merge_id:  # Check the timestamps
-                if merge_id[d_id][1] > ts:
-                    continue
-            merge_id[d_id] = (cs, ts)
-
-        local_registrations = dict()
         cursor.execute(
-            "SELECT device_id, call_sign, timestamp FROM LocalRegistrations;"
+            "SELECT device_id, call_sign, settings_json, timestamp FROM LocalRegistrations;"
         )
         rows = cursor.fetchall()
         for row in rows:
-            d_id = row[0]
-            cs = row[1]
-            ts = row[2]
+            operations.append((row[0], row[1], row[2], row[3]))
 
-            if d_id in merge_id:  # Check the timestamps
-                if merge_id[d_id][1] > ts:
-                    continue
-            merge_id[d_id] = (cs, ts)
+        # Sort by date, ascending
+        operations.sort(key=lambda x: x[3])
 
-        merge_id.update(self._overrides)
-
-        # Because we merged from up to 4 sources, we might have multiple copies of call signs.
-        # Collapse them
-        merge_cs = dict()
-        for d_id in merge_id:
-            cs = merge_id[d_id][0]
-            ts = merge_id[d_id][1]
-            if cs not in merge_cs or merge_cs[cs][1] < ts:  # this record is newer
-                merge_cs[cs] = (d_id, ts)
-
-        # Flip it back and save it
         self._merged = dict()
-        for cs in merge_cs:
-            d_id = merge_cs[cs][0]
+        for op in operations:
+            d_id = op[0]
+            cs = op[1]
+            cs_key = self._get_key(self._merged, cs)
+
+            # Delete the prior value(s)
+            if d_id is not None and d_id in self._merged:
+                del self._merged[d_id]
+            if cs_key is not None and cs_key in self._merged:
+                del self._merged[cs_key]
+
+            # If either the device id or call sign are None, then continue
+            # (this is a tombstone)
+            if d_id is None or cs is None:
+                continue
+
+            # Update
             self._merged[d_id] = cs
+
         cursor.close()
 
     def _load_overrides(self, file_path):
         """
         Return a copy of the registration overrides, which is loaded into memory.
         """
-        return dict()
+
+        if not os.path.isfile(file_path):
+            # No file, no overrides
+            return {}
+
+        # Load the existing copy
+        override_data = None
+        with open(file_path, "rt") as fh:
+            override_data = json.loads(fh.read())
+
+        # get a date in the distant future
+        future = time.time() + 3600 * 24 * 365 * 1000
+
+        # Return tuples in the expected format
+        tuples = override_data.get("tuples")
+        for t in tuples:
+            t[3] = future
+        return tuples
 
     def _load_precompiled(self, file_path):
         """
@@ -222,10 +232,19 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
                 fh.write(json.dumps(precompiled_data, indent=4))
 
         # Return tuples in the expected format
-        result = dict()
-        for t in precompiled_data["tuples"]:
-            result[t[0]] = (t[1], min(now, t[3]))  # No future timestamps
-        return result
+        tuples = precompiled_data.get("tuples")
+        for t in tuples:
+            t[3] = min(now, t[3])
+        return tuples
+
+    def _get_key(self, d, v):
+        """
+        Return the first dictionary key that maps to a value.
+        """
+        for k in d:
+            if d[k] == v:
+                return k
+        return None
 
     # Emulate a dictionary
     def __getitem__(self, key):

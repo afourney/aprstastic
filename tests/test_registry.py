@@ -13,7 +13,9 @@ from aprstastic._registry import (
     PRECOMPILED_FILE,
 )
 
+EMPTY_PRECOMPILED_FILE = "empty_" + PRECOMPILED_FILE
 TEST_PRECOMPILED_FILE = "test_" + PRECOMPILED_FILE
+TEST_OVERRIDES_FILE = "test_" + OVERRIDES_FILE
 data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_data")
 
 
@@ -52,15 +54,19 @@ def test_initialize_registry():
 
 def test_inserts_and_updates():
     db_file = os.path.join(data_dir, DATABASE_FILE)
+    overrides_file = os.path.join(data_dir, OVERRIDES_FILE)
     precompiled_file = os.path.join(data_dir, PRECOMPILED_FILE)
 
     # Start fresh
     if os.path.isfile(db_file):
         os.unlink(db_file)
+    if os.path.isfile(overrides_file):
+        os.unlink(overrides_file)
     if os.path.isfile(precompiled_file):
         os.unlink(precompiled_file)
 
     assert not os.path.isfile(db_file)
+    assert not os.path.isfile(overrides_file)
     assert not os.path.isfile(precompiled_file)
 
     # Initialize the registry
@@ -126,16 +132,20 @@ def test_inserts_and_updates():
 
 def test_precompiled():
     db_file = os.path.join(data_dir, DATABASE_FILE)
+    overrides_file = os.path.join(data_dir, OVERRIDES_FILE)
     precompiled_file = os.path.join(data_dir, PRECOMPILED_FILE)
     test_precompiled_file = os.path.join(data_dir, TEST_PRECOMPILED_FILE)
 
     # Start fresh
     if os.path.isfile(db_file):
         os.unlink(db_file)
+    if os.path.isfile(overrides_file):
+        os.unlink(overrides_file)
     if os.path.isfile(precompiled_file):
         os.unlink(precompiled_file)
 
     assert not os.path.isfile(db_file)
+    assert not os.path.isfile(overrides_file)
     assert not os.path.isfile(precompiled_file)
 
     # Copy the test precompiled_registry
@@ -185,6 +195,62 @@ def test_precompiled():
     }
 
 
+def test_overrides():
+    db_file = os.path.join(data_dir, DATABASE_FILE)
+    overrides_file = os.path.join(data_dir, OVERRIDES_FILE)
+    test_overrides_file = os.path.join(data_dir, TEST_OVERRIDES_FILE)
+    precompiled_file = os.path.join(data_dir, PRECOMPILED_FILE)
+    empty_precompiled_file = os.path.join(data_dir, EMPTY_PRECOMPILED_FILE)
+
+    # Start fresh
+    if os.path.isfile(db_file):
+        os.unlink(db_file)
+    if os.path.isfile(overrides_file):
+        os.unlink(overrides_file)
+    if os.path.isfile(precompiled_file):
+        os.unlink(precompiled_file)
+
+    assert not os.path.isfile(db_file)
+    assert not os.path.isfile(overrides_file)
+    assert not os.path.isfile(precompiled_file)
+
+    # Copy the test precompiled_registry
+    shutil.copyfile(test_overrides_file, overrides_file)
+    shutil.copyfile(empty_precompiled_file, precompiled_file)
+
+    # Initialize the registry
+    registry = CallSignRegistry(data_dir)
+
+    # Now check that it looks right
+    assert _to_dict(registry) == {
+        "!00000011": "N0CALL-1",
+        "!00000022": "N0CALL-2",
+    }
+
+    # Proper things are being overridden
+    registry.add_registration("!00000011", "N0CALL-6", True)
+    registry.add_registration("!00000022", "N0CALL-6", False)
+    registry.add_registration("!00000001", "N0CALL-1", True)
+    registry.add_registration("!00000002", "N0CALL-2", False)
+    assert _to_dict(registry) == {
+        "!00000011": "N0CALL-1",
+        "!00000022": "N0CALL-2",
+    }
+
+    # Deleted things stay deleted
+    registry.add_registration("!00000033", "N0CALL-3", True)
+    registry.add_registration("!00000033", "N0CALL-3", False)
+    registry.add_registration("!00000044", "N0CALL-4", True)
+    registry.add_registration("!00000044", "N0CALL-4", False)
+    registry.add_registration("!00000055", "N0CALL-5", True)
+    print(json.dumps(_to_dict(registry), indent=4))
+    assert _to_dict(registry) == {
+        "!00000011": "N0CALL-1",
+        "!00000022": "N0CALL-2",
+        "!00000055": "N0CALL-5",
+    }
+
+
 def _to_dict(registry):
     """
     Helper function to convert the registry into a dictionary
@@ -203,3 +269,4 @@ if __name__ == "__main__":
     test_initialize_registry()
     test_inserts_and_updates()
     test_precompiled()
+    test_overrides()
