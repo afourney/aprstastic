@@ -86,6 +86,10 @@ NOCALL-1: 10/11/2024 23:52:30 No messages.
 
 aprstastic only allows messages to transit if they are found in the client device-to-callsign mapping, and are thus attributable to a licensed operator. Random messages published on channels like LongFast, or from other devices do not qualify. All messages are unencrypted before they leave Meshtastic, so all APRS traffic is clear text.
 
+## A Note for APRS-IS Admins
+
+Instances of the aprstastic gateway identify themselves to the APRS-IS level 2 servers with the software version number `APZMAG`. In accordance to the [Protocol Reference](http://www.aprs.org/doc/APRS101.PDF), `APZ` designates an experimental application in development. In this case, `MAG` is short for 'Meshtastic-APRS Gateway'.
+
 ## Future Plans
 
 The clear weakness of this gateway is the need to register devices in order for the call sign mapping to work. If every node administrator needs to manage this list, then the system will not scale (and maybe this is fine to control traffic). However, one compelling possibility is to create a central registry where, call signs can be registered to nodes, and the gateways could then subscribe to this list. This would allow a degree of roaming without much need for coordination. To support this, all dynamic registrations (`!register` command) are optionally beaconed to [APRS-IS](https://aprs.fi/?c=message&call=MESHID-01), to facilitate discovery. Such beacons are expected to be rare -- at most once per device.

@@ -431,8 +431,8 @@ class Gateway(object):
         packet = (
             self._gateway_call_sign + ">" + APRS_SOFTWARE_ID + ",TCPIP*:" + aprs_msg
         )
-        logger.debug(f"[Testing] would beacon to APRS: {packet}")
-        # self._aprs_client.send(packet)
+        logger.debug(f"Beaconing to APRS: {packet}")
+        self._aprs_client.send(packet)
 
     def _send_mesh_message(self, destid, message):
         logger.info(f"Sending to '{destid}': {message}")
