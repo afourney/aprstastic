@@ -24,6 +24,14 @@ meshtastic_interface:
 beacon_registrations: true 
 
 
+# Should the gateway beacon its own position
+gateway_beacon:
+  enabled: true
+  icon: "M&"                  # 'M' in a diamond, representing a Gateway
+#  latitude: 47.6205063,      # Leave commented to read position from Meshtastic device
+#  longitude: -122.3518523    # Leave commented to read position from Meshtastic device
+
+
 # Where should logs be stored?
 # If null, (or commented out), store logs in the `logs` dir, sibling to this file. 
 #logs_dir: null
