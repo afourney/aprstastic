@@ -9,19 +9,15 @@
 > Legal operation of this software requires an amateur radio license and a valid call sign.
 
 > [!NOTE]
-> Code contributions are welcomed and appreciated. See [CONTRIBUTING.md](https://github.com/afourney/aprstastic/blob/main/CONTRIBUTING.md) for details.
+> Star this repo to follow our progress! This code is under active development, and contributions are both welcomed and appreciated. See [CONTRIBUTING.md](https://github.com/afourney/aprstastic/blob/main/CONTRIBUTING.md) for details.
 
 ## New!
 
 :fire: 2-minute [YouTube demo](https://www.youtube.com/watch?v=qUvpZUwl-cY)
 
-:fire: Basic position beacons now supported (lat, lon, timestamp)
-
 :fire: Over-the-air discovery and registration now supported. See image below.
 
-:fire: Registrations are now (optionally) beaconed to [MESHID-01](https://aprs.fi/?c=message&call=MESHID-01) to facilitate a global roaming profile.
-
-:fire: Design doc and future plans: [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
+:fire: Call sign registrations are now (optionally) beaconed to [MESHID-01](https://aprs.fi/?c=message&call=MESHID-01) to facilitate a global roaming profile.
 
 ## Introduction
 
@@ -89,12 +85,6 @@ aprstastic only allows messages to transit if they are found in the client devic
 ## A Note for APRS-IS Admins
 
 Instances of the aprstastic gateway identify themselves to the APRS-IS level 2 servers with the software version number `APZMAG`. In accordance to the [Protocol Reference](http://www.aprs.org/doc/APRS101.PDF), `APZ` designates an experimental application in development. In this case, `MAG` is short for 'Meshtastic-APRS Gateway'.
-
-## Future Plans
-
-The clear weakness of this gateway is the need to register devices in order for the call sign mapping to work. If every node administrator needs to manage this list, then the system will not scale (and maybe this is fine to control traffic). However, one compelling possibility is to create a central registry where, call signs can be registered to nodes, and the gateways could then subscribe to this list. This would allow a degree of roaming without much need for coordination. To support this, all dynamic registrations (`!register` command) are optionally beaconed to [APRS-IS](https://aprs.fi/?c=message&call=MESHID-01), to facilitate discovery. Such beacons are expected to be rare -- at most once per device.
-
-For more details, and other upcoming features, see [DESIGN.md](https://github.com/afourney/aprstastic/blob/main/DESIGN.md)
 
 ## License
 
