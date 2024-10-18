@@ -25,8 +25,10 @@ logger = logging.getLogger("aprstastic")
 
 from aprslib.parsing import parse
 
+APRS_SOFTWARE_ID = "APZMAG"  # Experimental Meshtastic-APRS Gateway
 MQTT_TOPIC = "meshtastic.receive"
 REGISTRATION_BEACON = "MESHID-01"
+GATEWAY_BEACON_INTERVAL = 3600  # Station beacons once an hour
 
 
 class Gateway(object):
@@ -44,6 +46,8 @@ class Gateway(object):
         self._reply_to = {}
         self._filtered_call_signs = []
         self._beacon_registrations = False
+
+        self._next_beacon_time = 0
 
         self._id_to_call_signs = CallSignRegistry(
             config.get("gateway", {}).get("data_dir")
@@ -110,7 +114,32 @@ class Gateway(object):
         time.sleep(2.0)
         logger.debug("Starting main loop.")
 
+        gateway_beacon = self._config.get("gateway", {}).get("gateway_beacon", {})
+
         while True:
+            # Beacon the gateway position
+            now = time.time()
+            if now > self._next_beacon_time and gateway_beacon.get("enabled"):
+                # If the latitude and longitude are not set in the config, then read it from the radio
+                gate_lat = gateway_beacon.get("latitude")
+                gate_lon = gateway_beacon.get("longitude")
+                if gate_lat is None or gate_lon is None:
+                    gate_position = self._interface.getMyNodeInfo().get("position", {})
+                    gate_lat = gate_position.get("latitude")
+                    gate_lon = gate_position.get("longitude")
+
+                # If we still don't have a position, check again in one minute
+                if gate_lat is None or gate_lon is None:
+                    self._next_beacon_time = now + 60
+                else:
+                    self._send_aprs_gateway_beacon(
+                        gate_lat,
+                        gate_lon,
+                        gateway_beacon.get("icon", "M&"),
+                        "aprstastic: " + self._gateway_id,
+                    )
+                    self._next_beacon_time = now + GATEWAY_BEACON_INTERVAL
+
             # Read a meshastic packet
             mesh_packet = None
             try:
@@ -327,7 +356,9 @@ class Gateway(object):
             tocall += " "
         packet = (
             fromcall
-            + ">APRS,WIDE1-1,qAR,"
+            + ">"
+            + APRS_SOFTWARE_ID
+            + ",WIDE1-1,qAR,"
             + self._gateway_call_sign
             + "::"
             + tocall
@@ -344,7 +375,9 @@ class Gateway(object):
             tocall += " "
         packet = (
             fromcall
-            + ">APRS,WIDE1-1,qAR,"
+            + ">"
+            + APRS_SOFTWARE_ID
+            + ",WIDE1-1,qAR,"
             + self._gateway_call_sign
             + "::"
             + tocall
@@ -354,18 +387,23 @@ class Gateway(object):
         logger.debug("Sending to APRS: " + packet)
         self._aprs_client.send(packet)
 
-    def _send_aprs_position(self, fromcall, lat, lon, t, message):
+    def _aprs_lat(self, lat):
         aprs_lat_ns = "N" if lat >= 0 else "S"
         lat = abs(lat)
         aprs_lat_deg = int(lat)
         aprs_lat_min = float((lat - aprs_lat_deg) * 60)
-        aprs_lat = f"%02d%02.2f%s" % (aprs_lat_deg, aprs_lat_min, aprs_lat_ns)
+        return f"%02d%05.2f%s" % (aprs_lat_deg, aprs_lat_min, aprs_lat_ns)
 
-        aprs_lon_ns = "E" if lon >= 0 else "W"
+    def _aprs_lon(self, lon):
+        aprs_lon_ew = "E" if lon >= 0 else "W"
         lon = abs(lon)
         aprs_lon_deg = abs(int(lon))
         aprs_lon_min = float((lon - aprs_lon_deg) * 60)
-        aprs_lon = f"%03d%05.2f%s" % (aprs_lon_deg, aprs_lon_min, aprs_lon_ns)
+        return f"%03d%05.2f%s" % (aprs_lon_deg, aprs_lon_min, aprs_lon_ew)
+
+    def _send_aprs_position(self, fromcall, lat, lon, t, message):
+        aprs_lat = self._aprs_lat(lat)
+        aprs_lon = self._aprs_lon(lon)
 
         aprs_ts = datetime.utcfromtimestamp(t).strftime("%d%H%M")
         if len(aprs_ts) == 5:
@@ -375,9 +413,25 @@ class Gateway(object):
 
         aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
         packet = (
-            fromcall + ">APRS,WIDE1-1,qAR," + self._gateway_call_sign + ":" + aprs_msg
+            fromcall
+            + ">"
+            + APRS_SOFTWARE_ID
+            + ",WIDE1-1,qAR,"
+            + self._gateway_call_sign
+            + ":"
+            + aprs_msg
         )
         logger.debug(f"Sending to APRS: {packet}")
+        self._aprs_client.send(packet)
+
+    def _send_aprs_gateway_beacon(self, lat, lon, icon, message):
+        aprs_lat = self._aprs_lat(lat)
+        aprs_lon = self._aprs_lon(lon)
+        aprs_msg = "!" + aprs_lat + icon[0] + aprs_lon + icon[1] + message
+        packet = (
+            self._gateway_call_sign + ">" + APRS_SOFTWARE_ID + ",TCPIP*:" + aprs_msg
+        )
+        logger.debug(f"Beaconing to APRS: {packet}")
         self._aprs_client.send(packet)
 
     def _send_mesh_message(self, destid, message):
