@@ -25,6 +25,7 @@ logger = logging.getLogger("aprstastic")
 
 from aprslib.parsing import parse
 
+APRS_SOFTWARE_ID = "APZMAG"  # Experimental Meshtastic-APRS Gateway
 MQTT_TOPIC = "meshtastic.receive"
 REGISTRATION_BEACON = "MESHID-01"
 GATEWAY_BEACON_INTERVAL = 3600  # Station beacons once an hour
@@ -355,7 +356,9 @@ class Gateway(object):
             tocall += " "
         packet = (
             fromcall
-            + ">APRS,WIDE1-1,qAR,"
+            + ">"
+            + APRS_SOFTWARE_ID
+            + ",WIDE1-1,qAR,"
             + self._gateway_call_sign
             + "::"
             + tocall
@@ -372,7 +375,9 @@ class Gateway(object):
             tocall += " "
         packet = (
             fromcall
-            + ">APRS,WIDE1-1,qAR,"
+            + ">"
+            + APRS_SOFTWARE_ID
+            + ",WIDE1-1,qAR,"
             + self._gateway_call_sign
             + "::"
             + tocall
@@ -408,7 +413,13 @@ class Gateway(object):
 
         aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
         packet = (
-            fromcall + ">APRS,WIDE1-1,qAR," + self._gateway_call_sign + ":" + aprs_msg
+            fromcall
+            + ">"
+            + APRS_SOFTWARE_ID
+            + ",WIDE1-1,qAR,"
+            + self._gateway_call_sign
+            + ":"
+            + aprs_msg
         )
         logger.debug(f"Sending to APRS: {packet}")
         self._aprs_client.send(packet)
@@ -417,7 +428,9 @@ class Gateway(object):
         aprs_lat = self._aprs_lat(lat)
         aprs_lon = self._aprs_lon(lon)
         aprs_msg = "!" + aprs_lat + icon[0] + aprs_lon + icon[1] + message
-        packet = self._gateway_call_sign + ">APRS,TCPIP*:" + aprs_msg
+        packet = (
+            self._gateway_call_sign + ">" + APRS_SOFTWARE_ID + ",TCPIP*:" + aprs_msg
+        )
         logger.debug(f"[Testing] would beacon to APRS: {packet}")
         # self._aprs_client.send(packet)
 
