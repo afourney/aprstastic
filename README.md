@@ -21,11 +21,11 @@
 
 ## Introduction
 
-Here is a proof of concept of a Meshtastic to APRS gateway for Meshtastic users **with amateur radio licenses**. It runs on stock Meshtastic (915MHz, not HAM band or mode), but uses a pre-registered association between Meshtastic device MAC addresses and amateur radio callsign+SSID to keep things properly attributed and compliant with FCC regulations. To this end, operation requires at least two meshtastic devices: one to serve as the gateway, and the others are the clients. The following image demonstrates how operators can register with the gateway:
+`aprstastic` is a bidirectional Meshtastic APRS gateway for Meshtastic users **with amateur radio licenses**. It runs on stock Meshtastic devices (LongFast, 915MHz, etc.), allowing you to participate and extend the public network, while using pre-registered associations between Meshtastic device IDs and amateur radio call signs to _bidirectionally_ gate APRS packets in a way that is compliant with FCC regulations. To this end, operation requires at least two Meshtastic devices: one to serve as the gateway, and the others are the clients. The following image demonstrates how operators can register with the gateway (and the broader global network, if registration beaconing is enabled):
 
 ![Example aprstastic registration flow. Start by sending 'aprs?' to any public channel. Wait for a direct message. Reply with !register CALLSIGN-SSID.](https://github.com/afourney/aprstastic/blob/main/imgs/flow.png "Example aprstastic registration flow.")
 
-In this scenario, once registered, private message to the gateway will be forwarded to APRS with the "from" call sign `KK7CMT-8`. Likewise, APRS messages addressed to `KK7CMT-8` will be routed to operators Meshtastic device via a Meshtastic direct message.
+In this scenario, direct messages to the gateway will be forwarded to APRS with the "from" call sign `KK7CMT-8`. Likewise, APRS messages addressed to `KK7CMT-8` will be routed to the originating/registered Meshtastic device via direct message. If registration beaconing is enabled, registration will also trigger a one-time APRS broadcast of the device-id to call sign mapping, allowing all other participating `aprstastic` gateways to learn the association. This enables devices to roam between participating gateways.
 
 These interactions are demonstrated in the following YouTube video [https://www.youtube.com/watch?v=qUvpZUwl-cY](https://www.youtube.com/watch?v=qUvpZUwl-cY)
 
