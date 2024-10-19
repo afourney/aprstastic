@@ -14,7 +14,8 @@ import serial.tools.list_ports
 import meshtastic.stream_interface
 import meshtastic.serial_interface
 from datetime import datetime
-from meshtastic.util import message_to_json
+from meshtastic.util import pskToString
+from meshtastic.protobuf import channel_pb2
 
 from queue import Queue, Empty
 from .__about__ import __version__
@@ -30,6 +31,10 @@ MQTT_TOPIC = "meshtastic.receive"
 REGISTRATION_BEACON = "MESHID-01"
 GATEWAY_BEACON_INTERVAL = 3600  # Station beacons once an hour
 
+GATE_NO_POSITIONS = "none"
+GATE_PUBLIC_POSITIONS = "public"
+GATE_ALL_POSITIONS = "all"
+
 
 class Gateway(object):
     def __init__(self, config):
@@ -40,6 +45,15 @@ class Gateway(object):
 
         self._interface = None
         self._mesh_rx_queue = Queue()
+        self._public_channels = (
+            []
+        )  # We only gate position reports received on public channels
+        self._gate_positions = (
+            config.get("gateway", {})
+            .get("gate_positions", GATE_PUBLIC_POSITIONS)
+            .lower()
+            .strip()
+        )
 
         self._aprs_client = None
 
@@ -72,6 +86,16 @@ class Gateway(object):
         node_info = self._interface.getMyNodeInfo()
         self._gateway_id = node_info.get("user", {}).get("id")
         logger.debug(f"Gateway device id: {self._gateway_id}")
+
+        # Determine which channels are public
+        for c in self._interface.localNode.channels:
+            if (
+                pskToString(c.settings.psk) in ["default", "unencrypted"]
+                and c.role != channel_pb2.Channel.Role.DISABLED
+            ):
+                self._public_channels.append(c.index)
+        # Fake it
+        logger.debug(f"Gateway device public channels: {self._public_channels}")
 
         # Create an initial list of known call signs based on the device node database
 
@@ -121,20 +145,22 @@ class Gateway(object):
             now = time.time()
             if now > self._next_beacon_time and gateway_beacon.get("enabled"):
                 # If the latitude and longitude are not set in the config, then read it from the radio
-                gate_lat = gateway_beacon.get("latitude")
-                gate_lon = gateway_beacon.get("longitude")
-                if gate_lat is None or gate_lon is None:
-                    gate_position = self._interface.getMyNodeInfo().get("position", {})
-                    gate_lat = gate_position.get("latitude")
-                    gate_lon = gate_position.get("longitude")
+                gateway_lat = gateway_beacon.get("latitude")
+                gateway_lon = gateway_beacon.get("longitude")
+                if gateway_lat is None or gateway_lon is None:
+                    gateway_position = self._interface.getMyNodeInfo().get(
+                        "position", {}
+                    )
+                    gateway_lat = gateway_position.get("latitude")
+                    gateway_lon = gateway_position.get("longitude")
 
                 # If we still don't have a position, check again in one minute
-                if gate_lat is None or gate_lon is None:
+                if gateway_lat is None or gateway_lon is None:
                     self._next_beacon_time = now + 60
                 else:
                     self._send_aprs_gateway_beacon(
-                        gate_lat,
-                        gate_lon,
+                        gateway_lat,
+                        gateway_lon,
                         gateway_beacon.get("icon", "M&"),
                         "aprstastic: " + self._gateway_id,
                     )
@@ -176,10 +202,11 @@ class Gateway(object):
         fromId = packet.get("fromId", None)
         toId = packet.get("toId", None)
         portnum = packet.get("decoded", {}).get("portnum")
+        channel = packet.get("channel", 0 if toId == "^all" else None)
 
         # Don't bother logging my telemetry
         if portnum != "TELEMETRY_APP" or fromId != self._gateway_id:
-            logger.info(f"{fromId} -> {toId}: {portnum}")
+            logger.info(f"{fromId} -> {toId}: {portnum}, channel: {channel}")
 
         # Record that we have spotted the ID
         should_announce = self._spotted(fromId)
@@ -188,6 +215,19 @@ class Gateway(object):
             if fromId not in self._id_to_call_signs:
                 return
 
+            # Apply the position reporting policy
+            if self._gate_positions == GATE_ALL_POSITIONS:
+                pass
+            elif self._gate_positions == GATE_PUBLIC_POSITIONS:
+                if toId == "^all":  # Broadcast
+                    if channel not in self._public_channels:
+                        return
+                elif toId != self._gateway_id:  # DM
+                    return
+            else:
+                return
+
+            # Gate the position
             position = packet.get("decoded", {}).get("position")
             self._send_aprs_position(
                 self._id_to_call_signs[fromId],

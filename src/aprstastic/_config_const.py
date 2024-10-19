@@ -23,6 +23,13 @@ meshtastic_interface:
 # Beacon new registrations to APRS-IS to facilitate discovery
 beacon_registrations: true 
 
+# Which position messages should be gated?
+# Valid options include:
+#    none - don't place any client position packets on APRS (gateway beacons are separate, below)
+#    public - (Default) gate positions of registered clients, only if broadcast on public channels (or DM)
+#    all - gate all positions of registered clients
+gate_positions: public
+
 
 # Should the gateway beacon its own position
 gateway_beacon:
