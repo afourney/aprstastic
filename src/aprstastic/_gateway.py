@@ -10,11 +10,10 @@ import random
 import threading
 import re
 import os
-import serial.tools.list_ports
 import meshtastic.stream_interface
 import meshtastic.serial_interface
 from datetime import datetime
-from meshtastic.util import message_to_json
+from meshtastic.util import findPorts
 
 from queue import Queue, Empty
 from .__about__ import __version__
@@ -162,9 +161,15 @@ class Gateway(object):
         self, device=None
     ) -> meshtastic.stream_interface.StreamInterface:
         if device is None:
-            ports = list(serial.tools.list_ports.comports())
+            ports = meshtastic.util.findPorts(True)
             if len(ports) == 1:
-                device = ports[0].device
+                device = ports[0]
+            else:
+                logger.error(
+                    "Please specify the correct serial port in 'aprstastic.yaml'. "
+                    f"Possible values include: {ports}"
+                )
+                return None
         if device is not None:
             dev = meshtastic.serial_interface.SerialInterface(device)
             logger.info(f"Connected to: {device}")
@@ -213,12 +218,19 @@ class Gateway(object):
                 return
 
             if message_string.strip() == "?":
-                # It seems to send in the opposite order? LIFO?
-                self._send_mesh_message(
-                    fromId,
-                    "Send and receive APRS messages by registering your call sign. HAM license required.\n\nReply with:\n!register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1\n\nSee https://github.com/afourney/aprstastic for more.",
-                )
-                return
+                # Different call signs for registered and non-registered devices
+                if fromId not in self._id_to_call_signs:
+                    self._send_mesh_message(
+                        fromId,
+                        "Send and receive APRS messages by registering your call sign. HAM license required.\n\nReply with:\n!register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1\n\nSee https://github.com/afourney/aprstastic for more.",
+                    )
+                    return
+                else:
+                    self._send_mesh_message(
+                        fromId,
+                        "Send APRS messages by replying here, and prefixing your message with the dest callsign. E.g., 'WLNK-1: hello'\n\nSee https://github.com/afourney/aprstastic for more.",
+                    )
+                    return
 
             if message_string.strip() == "!id" or message_string.strip() == "!version":
                 # Let clients query the gateway call sign and version number
