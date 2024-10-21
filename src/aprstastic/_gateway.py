@@ -511,9 +511,9 @@ class Gateway(object):
         if self._start_time is None:
             return "None"
 
-        uptime = int(time.time() - self._start_time)
+        seconds = int(time.time() - self._start_time)
 
-        if uptime < 1:
+        if seconds < 1:
             return "0 sec"
 
         parts = []
