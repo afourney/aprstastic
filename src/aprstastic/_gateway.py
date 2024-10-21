@@ -268,7 +268,7 @@ class Gateway(object):
                 # Let clients query the gateway call sign and version number
                 self._send_mesh_message(
                     fromId,
-                    f"Gateway call sign: {self._gateway_call_sign}, Uptime: {_self._uptime()}, Version: {__version__}",
+                    f"Gateway call sign: {self._gateway_call_sign}, Uptime: {self._uptime()}, Version: {__version__}",
                 )
                 return
 
@@ -377,7 +377,7 @@ class Gateway(object):
                 self._send_aprs_message(
                     tocall,
                     fromcall,
-                    f"Gateway ID: {self.self._gateway_id}, Uptime: {_self._uptime()}, Version: {__version__}",
+                    f"Gateway ID: {self.self._gateway_id}, Uptime: {self._uptime()}, Version: {__version__}",
                 )
                 return
 
