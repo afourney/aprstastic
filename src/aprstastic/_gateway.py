@@ -511,7 +511,7 @@ class Gateway(object):
         if self._start_time is None:
             return "None"
 
-        uptime = time(time.time() - self._start_time)
+        uptime = int(time.time() - self._start_time)
 
         if uptime < 1:
             return "0 sec"
