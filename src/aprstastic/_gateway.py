@@ -30,10 +30,20 @@ MQTT_TOPIC = "meshtastic.receive"
 REGISTRATION_BEACON = "MESHID-01"
 GATEWAY_BEACON_INTERVAL = 3600  # Station beacons once an hour
 
+# For uptime
+TIME_DURATION_UNITS = (
+    ("week", 60 * 60 * 24 * 7),
+    ("day", 60 * 60 * 24),
+    ("hour", 60 * 60),
+    ("min", 60),
+    ("sec", 1),
+)
+
 
 class Gateway(object):
     def __init__(self, config):
         self._config = config
+        self._start_time = None
 
         self._gateway_id = None
         self._gateway_call_sign = None
@@ -54,6 +64,9 @@ class Gateway(object):
         )
 
     def run(self):
+        # For measuring uptime
+        self._start_time = time.time()
+
         # Connect to the Meshtastic device
         device = (
             self._config.get("gateway", {})
@@ -255,7 +268,7 @@ class Gateway(object):
                 # Let clients query the gateway call sign and version number
                 self._send_mesh_message(
                     fromId,
-                    f"Gateway call sign: {self._gateway_call_sign}, Version: {__version__}",
+                    f"Gateway call sign: {self._gateway_call_sign}, Uptime: {_self._uptime()}, Version: {__version__}",
                 )
                 return
 
@@ -359,10 +372,12 @@ class Gateway(object):
             # Ack all remaining messages (which aren't themselves acks, and aren't beacons)
             self._send_aprs_ack(tocall, fromcall, packet.get("msgNo", ""))
 
-            # Message was sent to the gateway itself. Print it. Do nothing else.
+            # Message was sent to the gateway itself. Respond with station information.
             if tocall == self._gateway_call_sign:
-                logger.info(
-                    f"Received APRS message addressed to the gateway ({self._gateway_call_sign}): {packet['raw']}"
+                self._send_aprs_message(
+                    tocall,
+                    fromcall,
+                    f"Gateway ID: {self.self._gateway_id}, Uptime: {_self._uptime()}, Version: {__version__}",
                 )
                 return
 
@@ -491,3 +506,19 @@ class Gateway(object):
         self._filtered_call_signs.append(call_sign)
         self._aprs_client.set_filter("g/" + "/".join(self._filtered_call_signs))
         return True
+
+    def _uptime(self):
+        if self._start_time is None:
+            return "None"
+
+        uptime = time(time.time() - self._start_time)
+
+        if uptime < 1:
+            return "0 sec"
+
+        parts = []
+        for unit, div in TIME_DURATION_UNITS:
+            amount, seconds = divmod(int(seconds), div)
+            if amount > 0:
+                parts.append("{} {}{}".format(amount, unit, "" if amount == 1 else "s"))
+        return ", ".join(parts)
