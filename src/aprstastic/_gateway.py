@@ -377,7 +377,7 @@ class Gateway(object):
                 self._send_aprs_message(
                     tocall,
                     fromcall,
-                    f"Gateway ID: {self.self._gateway_id}, Uptime: {self._uptime()}, Version: {__version__}",
+                    f"Gateway ID: {self._gateway_id}, Uptime: {self._uptime()}, Version: {__version__}",
                 )
                 return
 
