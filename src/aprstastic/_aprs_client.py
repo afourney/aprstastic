@@ -97,6 +97,7 @@ class APRSClient(object):
     def _rx_thread_body(self) -> None:
         try:
             self._aprs = aprslib.IS(self._login, passwd=self._passcode, port=14580)
+            assert self._aprs is not None
             if self._filters is not None:
                 self._aprs.set_filter(self._filters)
             self._aprs.connect()
