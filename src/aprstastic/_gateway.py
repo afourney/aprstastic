@@ -10,6 +10,7 @@ import random
 import threading
 import re
 import os
+import traceback
 import meshtastic.stream_interface
 import meshtastic.serial_interface
 from datetime import datetime
@@ -116,43 +117,61 @@ class Gateway(object):
         gateway_beacon = self._config.get("gateway", {}).get("gateway_beacon", {})
 
         while True:
-            # Beacon the gateway position
-            now = time.time()
-            if now > self._next_beacon_time and gateway_beacon.get("enabled"):
-                # If the latitude and longitude are not set in the config, then read it from the radio
-                gate_lat = gateway_beacon.get("latitude")
-                gate_lon = gateway_beacon.get("longitude")
-                if gate_lat is None or gate_lon is None:
-                    gate_position = self._interface.getMyNodeInfo().get("position", {})
-                    gate_lat = gate_position.get("latitude")
-                    gate_lon = gate_position.get("longitude")
+            # There are three independent steps performed by this loop: beaconing, reading
+            # from Meshtastic, and reading from APRS. Make sure that errors in one don't
+            # stop the others.
 
-                # If we still don't have a position, check again in one minute
-                if gate_lat is None or gate_lon is None:
-                    self._next_beacon_time = now + 60
-                else:
-                    self._send_aprs_gateway_beacon(
-                        gate_lat,
-                        gate_lon,
-                        gateway_beacon.get("icon", "M&"),
-                        "aprstastic: " + self._gateway_id,
-                    )
-                    self._next_beacon_time = now + GATEWAY_BEACON_INTERVAL
-
-            # Read a meshastic packet
-            mesh_packet = None
+            # 1. Beacon the gateway position
+            ################################
             try:
-                mesh_packet = self._mesh_rx_queue.get(block=False)
-            except Empty:
-                pass
+                now = time.time()
+                if now > self._next_beacon_time and gateway_beacon.get("enabled"):
+                    # If the latitude and longitude are not set in the config, then read it from the radio
+                    gate_lat = gateway_beacon.get("latitude")
+                    gate_lon = gateway_beacon.get("longitude")
+                    if gate_lat is None or gate_lon is None:
+                        gate_position = self._interface.getMyNodeInfo().get(
+                            "position", {}
+                        )
+                        gate_lat = gate_position.get("latitude")
+                        gate_lon = gate_position.get("longitude")
 
-            if mesh_packet is not None:
-                self._process_meshtastic_packet(mesh_packet)
+                    # If we still don't have a position, check again in one minute
+                    if gate_lat is None or gate_lon is None:
+                        self._next_beacon_time = now + 60
+                    else:
+                        self._send_aprs_gateway_beacon(
+                            gate_lat,
+                            gate_lon,
+                            gateway_beacon.get("icon", "M&"),
+                            "aprstastic: " + self._gateway_id,
+                        )
+                        self._next_beacon_time = now + GATEWAY_BEACON_INTERVAL
+            except Exception as e:
+                logger.error(traceback.format_exc())
 
-            # Read an APRS packet
-            aprs_packet = self._aprs_client.recv()
-            if aprs_packet is not None:
-                self._process_aprs_packet(aprs_packet)
+            # 2. Read a meshastic packet
+            ############################
+            try:
+                mesh_packet = None
+                try:
+                    mesh_packet = self._mesh_rx_queue.get(block=False)
+                except Empty:
+                    pass
+
+                if mesh_packet is not None:
+                    self._process_meshtastic_packet(mesh_packet)
+            except Exception as e:
+                logger.error(traceback.format_exc())
+
+            # 3. Read an APRS packet
+            ########################
+            try:
+                aprs_packet = self._aprs_client.recv()
+                if aprs_packet is not None:
+                    self._process_aprs_packet(aprs_packet)
+            except Exception as e:
+                logger.error(traceback.format_exc())
 
             # Yield
             time.sleep(0.001)

@@ -5,6 +5,7 @@ import logging
 import yaml
 import os
 import sys
+import traceback
 from logging.handlers import TimedRotatingFileHandler
 from ._config import init_config, ConfigError
 from ._gateway import Gateway
@@ -52,6 +53,12 @@ if logs_dir is not None:
     file_handler.addFilter(LocalDebugFilter())
     logging.root.addHandler(file_handler)
 
-# Start the gateway
-gateway = Gateway(config)
-gateway.run()
+# Start the gateway. Log any errors, and exit cleanly
+try:
+    gateway = Gateway(config)
+    gateway.run()
+except:
+    logger.error(traceback.format_exc())
+    raise
+finally:
+    logging.shutdown()

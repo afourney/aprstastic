@@ -1,5 +1,6 @@
 import time
 import threading
+import traceback
 import aprslib
 import logging
 from aprslib.parsing import parse
@@ -89,18 +90,22 @@ class APRSClient(object):
                     self._aprs.sendall(packet)
             except Empty:
                 time.sleep(YIELD_DELAY)
+            except:
+                logger.error(traceback.format_exc())
+                raise
 
     def _rx_thread_body(self) -> None:
-        self._aprs = aprslib.IS(self._login, passwd=self._passcode, port=14580)
-        if self._filters is not None:
-            self._aprs.set_filter(self._filters)
-        if self._aprs is not None:
+        try:
+            self._aprs = aprslib.IS(self._login, passwd=self._passcode, port=14580)
+            if self._filters is not None:
+                self._aprs.set_filter(self._filters)
             self._aprs.connect()
             self._aprs.consumer(
                 lambda x: self._rx_queue.put(x, block=True), raw=True, blocking=True
             )
-        else:
-            raise ValueError("_aprs is None")
+        except:
+            logger.error(traceback.format_exc())
+            raise
 
 
 class _UpdateFilters(object):
