@@ -32,11 +32,11 @@ GATEWAY_BEACON_INTERVAL = 3600  # Station beacons once an hour
 
 # For uptime
 TIME_DURATION_UNITS = (
-    ("week", 60 * 60 * 24 * 7),
-    ("day", 60 * 60 * 24),
-    ("hour", 60 * 60),
-    ("min", 60),
-    ("sec", 1),
+    ("w", 60 * 60 * 24 * 7),
+    ("d", 60 * 60 * 24),
+    ("h", 60 * 60),
+    ("m", 60),
+    ("s", 1),
 )
 
 
@@ -514,11 +514,14 @@ class Gateway(object):
         seconds = int(time.time() - self._start_time)
 
         if seconds < 1:
-            return "0 sec"
+            return "0s"
 
         parts = []
         for unit, div in TIME_DURATION_UNITS:
             amount, seconds = divmod(int(seconds), div)
             if amount > 0:
-                parts.append("{} {}{}".format(amount, unit, "" if amount == 1 else "s"))
+                parts.append("{}{}".format(amount, unit))
+            if len(parts) >= 3:  # Don't get overly precise
+                break
+
         return ", ".join(parts)
