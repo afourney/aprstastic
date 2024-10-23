@@ -6,6 +6,7 @@ import sys
 import json
 import time
 import logging
+import warnings
 import random
 import threading
 import re
@@ -24,6 +25,9 @@ from ._registry import CallSignRegistry
 logger = logging.getLogger("aprstastic")
 
 from aprslib.parsing import parse
+
+MAX_APRS_TEXT_MESSAGE_LENGTH = 67
+MAX_APRS_POSITION_MESSAGE_LENGTH = 43
 
 APRS_SOFTWARE_ID = "APZMAG"  # Experimental Meshtastic-APRS Gateway
 MQTT_TOPIC = "meshtastic.receive"
@@ -398,8 +402,11 @@ class Gateway(object):
                 self._send_mesh_message(toId, fromcall + ": " + message)
 
     def _send_aprs_message(self, fromcall, tocall, message):
+        message = self._truncate_message(message, MAX_APRS_TEXT_MESSAGE_LENGTH)
+
         while len(tocall) < 9:
             tocall += " "
+
         packet = (
             fromcall
             + ">"
@@ -448,6 +455,8 @@ class Gateway(object):
         return f"%03d%05.2f%s" % (aprs_lon_deg, aprs_lon_min, aprs_lon_ew)
 
     def _send_aprs_position(self, fromcall, lat, lon, t, message):
+        message = self._truncate_message(message, MAX_APRS_POSITION_MESSAGE_LENGTH)
+
         aprs_lat = self._aprs_lat(lat)
         aprs_lon = self._aprs_lon(lon)
 
@@ -525,3 +534,24 @@ class Gateway(object):
                 break
 
         return ", ".join(parts)
+
+    def _truncate_message(message, max_bytes):
+        m_len = len(message.encode("utf-8"))
+
+        # Nothing to do
+        if m_len < max_bytes:
+            return message
+
+        # Warn about the message being too long
+        warnings.warn(
+            f"Message of length {m_len} bytes exceeds the protocol maximum of {MAX_APRS_TEXT_MESSAGE_LENGTH} bytes."
+        )
+
+        # Trim first by characters to get close, then remove one character at a time
+        strlen = max_bytes
+        message = message[0:strlen]
+        while len(message.encode("utf-8")) > max_bytes:
+            # Chop a character
+            strlen -= 1
+            message = message[0:strlen]
+        return message
