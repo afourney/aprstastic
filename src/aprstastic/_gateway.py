@@ -539,7 +539,7 @@ class Gateway(object):
         m_len = len(message.encode("utf-8"))
 
         # Nothing to do
-        if m_len < max_bytes:
+        if m_len <= max_bytes:
             return message
 
         # Warn about the message being too long
