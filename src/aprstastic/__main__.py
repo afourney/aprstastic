@@ -32,6 +32,7 @@ stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
 stream_handler.addFilter(LocalDebugFilter())
 logging.root.addHandler(stream_handler)
+logging.captureWarnings(True)
 
 # Load the configuration
 config = None
