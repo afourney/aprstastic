@@ -535,7 +535,7 @@ class Gateway(object):
 
         return ", ".join(parts)
 
-    def _truncate_message(message, max_bytes):
+    def _truncate_message(self, message, max_bytes):
         m_len = len(message.encode("utf-8"))
 
         # Nothing to do
