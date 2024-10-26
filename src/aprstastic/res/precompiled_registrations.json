@@ -4,5 +4,8 @@
   "download_timestamp": 1729059192.5536866,
   "reported_timestamp": 1729059192.5536866,
   "url": "https://raw.githubusercontent.com/afourney/aprstastic/refs/heads/main/src/aprstastic/res/precompiled_registrations.json",
-  "tuples": [["!fd656739", "KK7CMT-8", null, 1729059192]]
+  "tuples": [
+    ["!d37c9165", "KK7CMT-8", null, 1729895906],
+    ["!da577418", "K7RMZ-6", null, 1729884727]
+  ]
 }
