@@ -34,6 +34,11 @@ MQTT_TOPIC = "meshtastic.receive"
 REGISTRATION_BEACON = "MESHID-01"
 GATEWAY_BEACON_INTERVAL = 3600  # Station beacons once an hour
 
+SERIAL_WATCHDOG_INTERVAL = 60  # Check the serial state every minute
+MESHTASTIC_WATCHDOG_INTERVAL = (
+    60 * 15
+)  # After how long should we become worried the Meshtastic device is quiet?
+
 # For uptime
 TIME_DURATION_UNITS = (
     ("w", 60 * 60 * 24 * 7),
@@ -62,6 +67,8 @@ class Gateway(object):
         self._beacon_registrations = False
 
         self._next_beacon_time = 0
+        self._next_serial_check_time = 0
+        self._last_meshtastic_packet_time = 0
 
         self._id_to_call_signs = CallSignRegistry(
             config.get("gateway", {}).get("data_dir")
@@ -133,15 +140,31 @@ class Gateway(object):
 
         gateway_beacon = self._config.get("gateway", {}).get("gateway_beacon", {})
 
-        while True:
-            # There are three independent steps performed by this loop: beaconing, reading
-            # from Meshtastic, and reading from APRS. Make sure that errors in one don't
-            # stop the others.
+        self._last_meshtastic_packet_time = self._start_time
 
-            # 1. Beacon the gateway position
+        while True:
+            # There are four independent steps performed by this loop: servicing watchdogs,
+            # beaconing, reading from Meshtastic, and reading from APRS.
+            # Make sure that errors in one don't stop the others.
+            now = time.time()
+
+            # 1. Service the watchdogs
+            ############################
+
+            # Periodically check on the state of the device serial connection
+            if now > self._next_serial_check_time:
+                self._next_serial_check_time = now + SERIAL_WATCHDOG_INTERVAL
+                if not self._interface.stream.is_open:
+                    logger.warn("Serial connection is not open.")
+
+            # Check if the Meshtastic device has gone silent a while
+            if now - self._last_meshtastic_packet_time > MESHTASTIC_WATCHDOG_INTERVAL:
+                self._last_meshtastic_packet_time = now
+                logger.warn("No message from Meshtastic device for 15 minutes.")
+
+            # 2. Beacon the gateway position
             ################################
             try:
-                now = time.time()
                 if now > self._next_beacon_time and gateway_beacon.get("enabled"):
                     # If the latitude and longitude are not set in the config, then read it from the radio
                     gate_lat = gateway_beacon.get("latitude")
@@ -167,7 +190,7 @@ class Gateway(object):
             except Exception as e:
                 logger.error(traceback.format_exc())
 
-            # 2. Read a meshastic packet
+            # 3. Read a Meshastic packet
             ############################
             try:
                 mesh_packet = None
@@ -181,7 +204,7 @@ class Gateway(object):
             except Exception as e:
                 logger.error(traceback.format_exc())
 
-            # 3. Read an APRS packet
+            # 4. Read an APRS packet
             ########################
             try:
                 aprs_packet = self._aprs_client.recv()
@@ -214,6 +237,8 @@ class Gateway(object):
             return None
 
     def _process_meshtastic_packet(self, packet):
+        self._last_meshtastic_packet_time = time.time()
+
         fromId = packet.get("fromId", None)
         toId = packet.get("toId", None)
         portnum = packet.get("decoded", {}).get("portnum")
