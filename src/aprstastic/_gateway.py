@@ -150,17 +150,33 @@ class Gateway(object):
 
             # 1. Service the watchdogs
             ############################
+            reconnect = False
 
             # Periodically check on the state of the device serial connection
             if now > self._next_serial_check_time:
                 self._next_serial_check_time = now + SERIAL_WATCHDOG_INTERVAL
                 if self._interface.stream is None or not self._interface.stream.is_open:
                     logger.warn("Serial connection is not open.")
+                    reconnect = True
 
             # Check if the Meshtastic device has gone silent a while
             if now - self._last_meshtastic_packet_time > MESHTASTIC_WATCHDOG_INTERVAL:
                 self._last_meshtastic_packet_time = now
                 logger.warn("No message from Meshtastic device for 15 minutes.")
+                reconnect = True
+
+            # Reconnect if needed
+            if reconnect:
+                logger.warn("Attempting to reconnect in 30 seconds.")
+                time.sleep(30)
+                try:
+                    if pubsub.pub.isSubscribed(on_recv, MQTT_TOPIC):
+                        pubsub.pub.unsubscribe(on_recv, MQTT_TOPIC)
+                    self._interface = self._get_interface(device)
+                    if self._interface is not None:
+                        pubsub.pub.subscribe(on_recv, MQTT_TOPIC)
+                except Exception as e:
+                    logger.error(traceback.format_exc())
 
             # 2. Beacon the gateway position
             ################################
