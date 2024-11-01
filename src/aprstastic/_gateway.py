@@ -154,7 +154,7 @@ class Gateway(object):
             # Periodically check on the state of the device serial connection
             if now > self._next_serial_check_time:
                 self._next_serial_check_time = now + SERIAL_WATCHDOG_INTERVAL
-                if not self._interface.stream.is_open:
+                if self._interface.stream is None or not self._interface.stream.is_open:
                     logger.warn("Serial connection is not open.")
 
             # Check if the Meshtastic device has gone silent a while
