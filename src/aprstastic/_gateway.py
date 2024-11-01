@@ -148,7 +148,6 @@ class Gateway(object):
             # Make sure that errors in one don't stop the others.
             now = time.time()
 
-            
             # 1. Service the watchdogs
             ############################
             reconnect = False
@@ -179,7 +178,6 @@ class Gateway(object):
                 except Exception as e:
                     logger.error(traceback.format_exc())
 
-                    
             # 2. Beacon the gateway position
             ################################
             try:
