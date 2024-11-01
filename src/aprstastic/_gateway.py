@@ -160,10 +160,15 @@ class Gateway(object):
                     reconnect = True
 
             # Check if the Meshtastic device has gone silent a while
-            if now - self._last_meshtastic_packet_time > MESHTASTIC_WATCHDOG_INTERVAL:
+            if (
+                reconnect == False
+                and now - self._last_meshtastic_packet_time
+                > MESHTASTIC_WATCHDOG_INTERVAL
+            ):
                 self._last_meshtastic_packet_time = now
                 logger.warn("No message from Meshtastic device for 15 minutes.")
                 reconnect = True
+                # This might be a frozen device. It may not be recoverable.
 
             # Reconnect if needed
             if reconnect:
