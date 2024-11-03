@@ -506,13 +506,18 @@ class Gateway(object):
         aprs_lat = self._aprs_lat(lat)
         aprs_lon = self._aprs_lon(lon)
 
-        aprs_ts = datetime.utcfromtimestamp(t).strftime("%d%H%M")
-        if len(aprs_ts) == 5:
-            aprs_ts = "0" + aprs_ts + "z"
+        aprs_msg = None
+        if t is None:
+            # No timestamp
+            aprs_msg = "=" + aprs_lat + "/" + aprs_lon + ">" + message
         else:
-            aprs_ts = aprs_ts + "z"
+            aprs_ts = datetime.utcfromtimestamp(t).strftime("%d%H%M")
+            if len(aprs_ts) == 5:
+                aprs_ts = "0" + aprs_ts + "z"
+            else:
+                aprs_ts = aprs_ts + "z"
+            aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
 
-        aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
         packet = (
             fromcall
             + ">"
