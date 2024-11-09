@@ -12,6 +12,11 @@ call_sign: N0CALL
 aprsis_passcode: 12345 
 
 
+# Maximum length of an APRS text message. 
+# If null, or commented out, default to 67 as per APRS specification
+# max_aprs_message_length: 128
+
+
 # Only serial devices are supported right now. 
 # If 'device' is null (or commented out), an attempt will be made to 
 # detected it automatically.
