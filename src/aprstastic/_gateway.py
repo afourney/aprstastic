@@ -448,26 +448,27 @@ class Gateway(object):
                 self._send_mesh_message(toId, fromcall + ": " + message)
 
     def _send_aprs_message(self, fromcall, tocall, message):
-        message = self._truncate_message(message, MAX_APRS_TEXT_MESSAGE_LENGTH)
+        message_chunks = self._chunk_message(message, MAX_APRS_TEXT_MESSAGE_LENGTH)
 
         while len(tocall) < 9:
             tocall += " "
 
-        packet = (
-            fromcall
-            + ">"
-            + APRS_SOFTWARE_ID
-            + ",WIDE1-1,qAR,"
-            + self._gateway_call_sign
-            + "::"
-            + tocall
-            + ":"
-            + message.strip()
-            + "{"
-            + str(random.randint(0, 999))
-        )
-        logger.debug("Sending to APRS: " + packet)
-        self._aprs_client.send(packet)
+        for chunk in message_chunks:
+            packet = (
+                fromcall
+                + ">"
+                + APRS_SOFTWARE_ID
+                + ",WIDE1-1,qAR,"
+                + self._gateway_call_sign
+                + "::"
+                + tocall
+                + ":"
+                + chunk.strip()
+                + "{"
+                + str(random.randint(0, 999))
+            )
+            logger.debug("Sending to APRS: " + packet)
+            self._aprs_client.send(packet)
 
     def _send_aprs_ack(self, fromcall, tocall, messageId):
         while len(tocall) < 9:
@@ -595,7 +596,7 @@ class Gateway(object):
 
         # Warn about the message being too long
         warnings.warn(
-            f"Message of length {m_len} bytes exceeds the protocol maximum of {MAX_APRS_TEXT_MESSAGE_LENGTH} bytes."
+            f"Message of length {m_len} bytes exceeds the protocol maximum of {max_bytes} bytes."
         )
 
         # Trim first by characters to get close, then remove one character at a time
@@ -606,3 +607,25 @@ class Gateway(object):
             strlen -= 1
             message = message[0:strlen]
         return message
+
+    def _chunk_message(self, message, max_bytes):
+        chunks = list()
+
+        # We want to break on spaces
+        tokens = re.split(r"(\s+)", message)
+        if len(tokens) == 0:
+            return chunks
+
+        buffer = tokens.pop(0)  # Always include at least one token
+        while len(tokens) > 0:
+            token = tokens.pop(0)
+            if len((buffer + token).encode("utf-8")) > max_bytes:
+                chunks.append(buffer)
+                buffer = token
+            else:
+                buffer += token
+        if len(buffer) > 0:
+            chunks.append(buffer)
+            buffer = ""
+
+        return chunks
