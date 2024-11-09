@@ -61,6 +61,11 @@ class Gateway(object):
         self._mesh_rx_queue = Queue()
 
         self._aprs_client = None
+        self._max_aprs_message_length = config.get("gateway", {}).get(
+            "max_aprs_message_length"
+        )
+        if self._max_aprs_message_length is None:
+            self._max_aprs_message_length = MAX_APRS_TEXT_MESSAGE_LENGTH
 
         self._reply_to = {}
         self._filtered_call_signs = []
@@ -448,7 +453,7 @@ class Gateway(object):
                 self._send_mesh_message(toId, fromcall + ": " + message)
 
     def _send_aprs_message(self, fromcall, tocall, message):
-        message_chunks = self._chunk_message(message, MAX_APRS_TEXT_MESSAGE_LENGTH)
+        message_chunks = self._chunk_message(message, self._max_aprs_message_length)
 
         while len(tocall) < 9:
             tocall += " "
