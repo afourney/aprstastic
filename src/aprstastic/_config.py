@@ -85,6 +85,4 @@ def init_config():
     os.makedirs(logs_dir, exist_ok=True)
     config["logs_dir"] = logs_dir
 
-    # TODO: Fixme
-    # Wrap the config in a structure that is backwards compatible
-    return {"gateway": config, "licensed_operators": {}}
+    return config

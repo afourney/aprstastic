@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "package_version": "0.0.1a8",
-  "download_timestamp": 1729059192.5536866,
-  "reported_timestamp": 1729059192.5536866,
+  "package_version": "0.0.1a23",
+  "download_timestamp": 1731214614.6973112,
+  "reported_timestamp": 1731214614.6973112,
   "url": "https://raw.githubusercontent.com/afourney/aprstastic/refs/heads/main/src/aprstastic/res/precompiled_registrations.json",
   "tuples": [
     ["!d37c9165", "KK7CMT-8", null, 1729895906],

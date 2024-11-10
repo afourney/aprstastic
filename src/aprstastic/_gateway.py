@@ -61,9 +61,7 @@ class Gateway(object):
         self._mesh_rx_queue = Queue()
 
         self._aprs_client = None
-        self._max_aprs_message_length = config.get("gateway", {}).get(
-            "max_aprs_message_length"
-        )
+        self._max_aprs_message_length = config.get("max_aprs_message_length")
         if self._max_aprs_message_length is None:
             self._max_aprs_message_length = MAX_APRS_TEXT_MESSAGE_LENGTH
 
@@ -75,20 +73,14 @@ class Gateway(object):
         self._next_serial_check_time = 0
         self._last_meshtastic_packet_time = 0
 
-        self._id_to_call_signs = CallSignRegistry(
-            config.get("gateway", {}).get("data_dir")
-        )
+        self._id_to_call_signs = CallSignRegistry(config.get("data_dir"))
 
     def run(self):
         # For measuring uptime
         self._start_time = time.time()
 
         # Connect to the Meshtastic device
-        device = (
-            self._config.get("gateway", {})
-            .get("meshtastic_interface", {})
-            .get("device")
-        )
+        device = self._config.get("meshtastic_interface", {}).get("device")
 
         self._interface = self._get_interface(device)
         if self._interface is None:
@@ -105,15 +97,11 @@ class Gateway(object):
         # Create an initial list of known call signs based on the device node database
 
         # Myself
-        self._gateway_call_sign = (
-            self._config.get("gateway", {}).get("call_sign", "").upper().strip()
-        )
+        self._gateway_call_sign = self._config.get("call_sign", "").upper().strip()
         self._filtered_call_signs.append(self._gateway_call_sign)
 
         # The registraion beacon
-        self._beacon_registrations = self._config.get("gateway", {}).get(
-            "beacon_registrations", True
-        )
+        self._beacon_registrations = self._config.get("beacon_registrations", True)
         if self._beacon_registrations:
             self._filtered_call_signs.append(REGISTRATION_BEACON)
 
@@ -132,7 +120,7 @@ class Gateway(object):
             self._filtered_call_signs.append(self._id_to_call_signs[presumptive_id])
 
         # Connect to APRS IS
-        aprsis_passcode = self._config.get("gateway", {}).get("aprsis_passcode")
+        aprsis_passcode = self._config.get("aprsis_passcode")
         self._aprs_client = APRSClient(
             self._gateway_call_sign,
             aprsis_passcode,
@@ -143,7 +131,7 @@ class Gateway(object):
         time.sleep(2.0)
         logger.debug("Starting main loop.")
 
-        gateway_beacon = self._config.get("gateway", {}).get("gateway_beacon", {})
+        gateway_beacon = self._config.get("gateway_beacon", {})
 
         self._last_meshtastic_packet_time = self._start_time
 
@@ -419,8 +407,9 @@ class Gateway(object):
                     )
                     self._id_to_call_signs.add_registration(mesh_id, fromcall, False)
                 else:
-                    logger.error(
-                        f"Invalid registration beacon: {packet.get('raw')}",
+                    # Not necessarily and error. Could be from a future version
+                    logger.debug(
+                        f"Unknown registration beacon: {packet.get('raw')}",
                     )
                 return
 
