@@ -102,6 +102,12 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
     def add_registration(self, device_id, call_sign, is_local):
         cursor = self._db_conn.cursor()
 
+        # Make sure that device or call_sign is non None
+        if device_id is None and call_sign is None:
+            raise ValueError(
+                "At least one of 'device_id' or 'call_sign' must be non-None."
+            )
+
         # Delete prior rows
         del_query = "DELETE FROM %s WHERE device_id = ? OR call_sign = ?;" % (
             "LocalRegistrations" if is_local else "BeaconedRegistrations",

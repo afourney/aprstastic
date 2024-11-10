@@ -39,6 +39,10 @@ MESHTASTIC_WATCHDOG_INTERVAL = (
     60 * 15
 )  # After how long should we become worried the Meshtastic device is quiet?
 
+# Beacons that mean unregister
+APRS_TOMBSTONE = "N0NE-01"
+MESH_TOMBSTONE = "!00000000"
+
 # For uptime
 TIME_DURATION_UNITS = (
     ("w", 60 * 60 * 24 * 7),
@@ -343,12 +347,37 @@ class Gateway(object):
                         logger.info(
                             f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
                         )
-                        self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
+                        # self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
                 else:
                     self._send_mesh_message(
                         fromId,
                         "Invalid call sign + ssid.\nSYNTAX: !register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1",
                     )
+                return
+
+            if message_string.lower().strip().startswith("!unregister"):
+                if fromId not in self._id_to_call_signs:
+                    self._send_mesh_message(
+                        fromId, "Device is not registered. Nothing to do."
+                    )
+                    return
+                call_sign = self._id_to_call_signs[fromId]
+                self._id_to_call_signs.add_registration(fromId, None, True)
+                self._id_to_call_signs.add_registration(None, call_sign, True)
+
+                if self._beacon_registrations:
+                    logger.info(
+                        f"Beaconing unregistration {APRS_TOMBSTONE} <-> {fromId}, to {REGISTRATION_BEACON}"
+                    )
+                    # self._send_aprs_message(APRS_TOMBSTONE, REGISTRATION_BEACON, fromId)
+                    logger.info(
+                        f"Beaconing unregistration {call_sign} <-> {MESH_TOMBSTONE}, to {REGISTRATION_BEACON}"
+                    )
+                    # self._send_aprs_message(call_sign, REGISTRATION_BEACON, MESH_TOMBSTONE)
+
+                self._filtered_call_signs.remove(call_sign)
+                self._aprs_client.set_filter("g/" + "/".join(self._filtered_call_signs))
+                self._send_mesh_message(fromId, "Device unregistered.")
                 return
 
             if fromId not in self._id_to_call_signs:
@@ -402,6 +431,11 @@ class Gateway(object):
             if tocall == REGISTRATION_BEACON:
                 mesh_id = packet.get("message_text", "").lower().strip()
                 if re.search(r"^![a-f0-9]{8}$", mesh_id):
+                    if mesh_id == MESH_TOMBSTONE:
+                        mesh_id = None
+                    if fromcall == APRS_TOMBSTONE:
+                        fromcall = None
+
                     logger.info(
                         f"Observed registration beacon: {mesh_id}: {fromcall}",
                     )
@@ -432,7 +466,7 @@ class Gateway(object):
                     toId = k
                     break
             if toId is None:
-                loggin.error(f"Unkown recipient: {tocall}")
+                logger.error(f"Unkown recipient: {tocall}")
                 return
 
             # Forward the message
