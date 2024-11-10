@@ -94,17 +94,14 @@ def test_load_config():
     assert config == json.loads(
         """
 {
-    "gateway": {
-        "call_sign": "N0CALL-1",
-        "aprsis_passcode": 12345,
-        "meshtastic_interface": {
-            "type": "serial"
-        },
-        "beacon_registrations": true,
-        "data_dir": "%s",
-        "logs_dir": "%s"
+    "call_sign": "N0CALL-1",
+    "aprsis_passcode": 12345,
+    "meshtastic_interface": {
+        "type": "serial"
     },
-    "licensed_operators": {}
+    "beacon_registrations": true,
+    "data_dir": "%s",
+    "logs_dir": "%s"
 }
 """
         % (data_dir, logs_dir)
@@ -126,17 +123,14 @@ def test_load_config():
     assert config == json.loads(
         """
 {
-    "gateway": {
-        "call_sign": "N0CALL-2",
-        "aprsis_passcode": 12345,
-        "meshtastic_interface": {
-            "type": "serial"
-        },
-        "beacon_registrations": false,
-        "data_dir": "%s",
-        "logs_dir": "%s"
+    "call_sign": "N0CALL-2",
+    "aprsis_passcode": 12345,
+    "meshtastic_interface": {
+        "type": "serial"
     },
-    "licensed_operators": {}
+    "beacon_registrations": false,
+    "data_dir": "%s",
+    "logs_dir": "%s"
 }
 """
         % (mydata_dir, mylogs_dir)
