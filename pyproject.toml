@@ -8,7 +8,8 @@ dynamic = ["version"]
 description = 'A Meshtastic-APRS Gateway'
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+#license = "MIT"
+license-files = { paths = ["LICENSE"] }
 keywords = [
     "aprs",
     "aprs-gateway",
@@ -36,6 +37,7 @@ dependencies = [
   "meshtastic",
   "aprslib",
   "requests",
+  "packaging",
 ]
 
 [project.urls]

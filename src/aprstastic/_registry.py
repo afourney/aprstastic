@@ -10,6 +10,7 @@ import requests
 import traceback
 import os
 
+from packaging.version import Version
 from .__about__ import __version__
 
 logger = logging.getLogger("aprstastic")
@@ -226,16 +227,31 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
             try:
                 response = requests.get(precompiled_data.get("url"))
                 response.raise_for_status()
-                precompiled_data = json.loads(response.text)
-                precompiled_data["download_timestamp"] = now
-                precompiled_data["reported_timestamp"] = min(
-                    now, precompiled_data["reported_timestamp"]
-                )
+                new_data = json.loads(response.text)
+
+                # Check for compatibility
+                min_version = new_data.get("min_package_version", "0.0.1a1")
+                if Version(__version__) < Version(min_version):
+                    logger.error(
+                        f"Remote precompiled database requires at least aprstastic version '{min_version}'. Please upgrade."
+                    )
+                elif "tuples" not in new_data:
+                    logger.error(
+                        f"Remote precompiled database is incompatible. Please upgrade."
+                    )
+                else:
+                    precompiled_data = new_data
+                    precompiled_data["download_timestamp"] = now
+                    precompiled_data["reported_timestamp"] = min(
+                        now, precompiled_data["reported_timestamp"]
+                    )
+
+                    # Save it
+                    with open(file_path, "wt") as fh:
+                        fh.write(json.dumps(precompiled_data, indent=4))
+                        logger.debug("New precompiled database saved to disk.")
             except:
                 logger.error(traceback.format_exc())
-            # Save it
-            with open(file_path, "wt") as fh:
-                fh.write(json.dumps(precompiled_data, indent=4))
 
         # Return tuples in the expected format
         tuples = precompiled_data.get("tuples")

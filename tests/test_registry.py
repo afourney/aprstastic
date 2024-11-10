@@ -132,11 +132,16 @@ def test_inserts_and_updates():
     # Wait a second then nuke nearly everything
     time.sleep(1.1)
     registry.add_registration("!00000002", None, True)
+    registry.add_registration(None, "N0CALL-2", True)
+
     registry.add_registration(None, "N0CALL-3", False)
     registry.add_registration(None, "N0CALL-4", True)
+
     registry.add_registration("!00000005", None, False)
+    registry.add_registration(None, "N0CALL-5", False)
+
     registry.add_registration("!00000006", None, True)
-    registry.add_registration(None, "N0CALL-7", False)
+    registry.add_registration("!00000007", None, False)
 
     assert _to_dict(registry) == {
         "!00000000": "N0CALL-1",
