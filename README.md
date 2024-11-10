@@ -31,6 +31,40 @@ These interactions are demonstrated in the following YouTube video [https://www.
 
 Each gateway mimics an iGate, and can support multiple Meshtastic users, as long as their call signs and devices are pre-registered.
 
+## Special Commands
+
+Various special commands can be issued by sending direct Meshtastic messages to the gateway. The following commands are currently supported.
+
+** Register a device: **
+
+Use the following command to register a Meshtastic device to a call sign, replacing `<YOUR_CALLSIGN>` appropriately:
+
+```
+!register <YOUR_CALLSIGN>
+```
+
+e.g.,
+
+```
+!register N0CALL-1
+```
+
+** Unregister a device: **
+
+Use the following command to unregister a Meshtastic device AND call sign.
+
+```
+!unregister
+```
+
+** Print version information: **
+
+Use the following command to print the gateway's info and version.
+
+```
+!version
+```
+
 ## Installation, Configuration, and Running
 
 ```console
