@@ -347,7 +347,7 @@ class Gateway(object):
                         logger.info(
                             f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
                         )
-                        # self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
+                        self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
                 else:
                     self._send_mesh_message(
                         fromId,
@@ -369,11 +369,13 @@ class Gateway(object):
                     logger.info(
                         f"Beaconing unregistration {APRS_TOMBSTONE} <-> {fromId}, to {REGISTRATION_BEACON}"
                     )
-                    # self._send_aprs_message(APRS_TOMBSTONE, REGISTRATION_BEACON, fromId)
+                    self._send_aprs_message(APRS_TOMBSTONE, REGISTRATION_BEACON, fromId)
                     logger.info(
                         f"Beaconing unregistration {call_sign} <-> {MESH_TOMBSTONE}, to {REGISTRATION_BEACON}"
                     )
-                    # self._send_aprs_message(call_sign, REGISTRATION_BEACON, MESH_TOMBSTONE)
+                    self._send_aprs_message(
+                        call_sign, REGISTRATION_BEACON, MESH_TOMBSTONE
+                    )
 
                 self._filtered_call_signs.remove(call_sign)
                 self._aprs_client.set_filter("g/" + "/".join(self._filtered_call_signs))
