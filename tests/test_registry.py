@@ -129,6 +129,26 @@ def test_inserts_and_updates():
         "!00000007": "N0CALL-7",
     }
 
+    # Wait a second then nuke nearly everything
+    time.sleep(1.1)
+    registry.add_registration("!00000002", None, True)
+    registry.add_registration(None, "N0CALL-3", False)
+    registry.add_registration(None, "N0CALL-4", True)
+    registry.add_registration("!00000005", None, False)
+    registry.add_registration("!00000006", None, True)
+    registry.add_registration(None, "N0CALL-7", False)
+
+    assert _to_dict(registry) == {
+        "!00000000": "N0CALL-1",
+    }
+
+    # Make sure we throw a value error if we try to add None, None
+    try:
+        registry.add_registration(None, None, False)
+        assert False
+    except ValueError:
+        pass
+
 
 def test_precompiled():
     db_file = os.path.join(data_dir, DATABASE_FILE)
