@@ -356,6 +356,7 @@ class Gateway(object):
                     elif icon == "$$":
                         pass
                     else:
+                        icon = icon.upper()
                         symbol = get_symbol_code(icon)
                         if symbol is None:
                             self._send_mesh_message(
@@ -473,6 +474,7 @@ class Gateway(object):
                     elif icon == "":
                         icon = None
                     elif icon != "$$":
+                        icon = icon.upper()
                         symbol = get_symbol_code(icon)
                         if symbol is None:
                             icon = None
