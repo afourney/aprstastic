@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         cursor.close()
         return conn
 
-    def add_registration(self, device_id, call_sign, is_local):
+    def add_registration(self, device_id, call_sign, icon, is_local):
         cursor = self._db_conn.cursor()
 
         # Make sure that device or call_sign is non None
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
             "INSERT INTO %s (device_id, call_sign, settings_json, timestamp) VALUES (?, ?, ?, ?);"
             % ("LocalRegistrations" if is_local else "BeaconedRegistrations",)
         )
-        cursor.execute(insert_query, (device_id, call_sign, None, int(time.time())))
+        cursor.execute(insert_query, (device_id, call_sign, icon, int(time.time())))
 
         self._db_conn.commit()
         cursor.close()

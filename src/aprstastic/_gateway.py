@@ -336,18 +336,33 @@ class Gateway(object):
             if message_string.lower().strip().startswith("!register"):
                 # Allow operatores to join
                 m = re.search(
-                    r"^!register:?\s+([a-z0-9]{4,7}\-[0-9]{1,2})$",
+                    r"^!register:?\s+([a-z0-9]{4,7}\-[0-9]{1,2})(\s+(\$\$|[a-zA-Z0-9]{2,3}))?$",
                     message_string.lower().strip(),
                 )
                 if m:
                     call_sign = m.group(1).upper()
+                    icon = m.group(3).upper()
+                    if icon == "":
+                        icon = None
+
+                    # Validate the icon
+                    if icon is not None and icon != "$$":
+                        symbol = get_symbol_code(icon)
+                        if symbol is None:
+                            self._send_mesh_message(
+                                fromId,
+                                "Invalid icon. See: https://github.com/afourney/aprstastic/blob/main/APRS_SYMBOLS.md",
+                            )
+                            return
+
+                    # Update the database
                     if fromId in self._registry:
                         # Update
-                        self._registry.add_registration(fromId, call_sign, True)
+                        self._registry.add_registration(fromId, call_sign, icon, True)
                         self._send_mesh_message(fromId, "Registration updated.")
                     else:
                         # New
-                        self._registry.add_registration(fromId, call_sign, True)
+                        self._registry.add_registration(fromId, call_sign, icon, True)
                         self._spotted(fromId)
                         self._send_mesh_message(
                             fromId,
@@ -356,12 +371,8 @@ class Gateway(object):
                     self._spotted(fromId)  # Run this again to update subscriptions
 
                     # Beacon the registration to APRS-IS to facilitate building a shared roaming mapping
-                    # which will be queried in future updates to aprstastic.
                     if self._beacon_registrations:
-                        logger.info(
-                            f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
-                        )
-                        self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
+                        self._send_registration_beacon(fromId, call_sign, icon)
                 else:
                     self._send_mesh_message(
                         fromId,
@@ -376,22 +387,16 @@ class Gateway(object):
                     )
                     return
                 call_sign = self._registry[fromId]["call_sign"]
-                self._registry.add_registration(fromId, None, True)
-                self._registry.add_registration(None, call_sign, True)
+                self._registry.add_registration(fromId, None, None, True)
+                self._registry.add_registration(None, call_sign, None, True)
 
                 if self._beacon_registrations:
-                    logger.info(
-                        f"Beaconing unregistration {APRS_TOMBSTONE} <-> {fromId}, to {REGISTRATION_BEACON}"
-                    )
-                    self._send_aprs_message(APRS_TOMBSTONE, REGISTRATION_BEACON, fromId)
-                    logger.info(
-                        f"Beaconing unregistration {call_sign} <-> {MESH_TOMBSTONE}, to {REGISTRATION_BEACON}"
-                    )
-                    self._send_aprs_message(
-                        call_sign, REGISTRATION_BEACON, MESH_TOMBSTONE
-                    )
+                    self._send_registration_beacon(fromId, APRS_TOMBSTONE, None)
+                    self._send_registration_beacon(MESH_TOMBSTONE, call_sign, None)
 
-                self._filtered_call_signs.remove(call_sign)
+                if call_sign in self._filtered_call_signs:
+                    self._filtered_call_signs.remove(call_sign)
+
                 self._aprs_client.set_filter("g/" + "/".join(self._filtered_call_signs))
                 self._send_mesh_message(fromId, "Device unregistered.")
                 return
@@ -448,16 +453,29 @@ class Gateway(object):
             # Is this a registration beacon?
             if tocall == REGISTRATION_BEACON:
                 mesh_id = packet.get("message_text", "").lower().strip()
-                if re.search(r"^![a-f0-9]{8}$", mesh_id):
+                m = re.search(r"^(![a-f0-9]{8})(:(\$\$|[A-Za-z0-9]{2,3}))?$", mesh_id)
+                if m:
+                    mesh_id = m.group(1)
+                    icon = m.group(2)
+
+                    # Validate the icon
+                    if icon == "":
+                        icon = None
+                    if icon != "$$":
+                        symbol = get_symbol_code(icon)
+                        if symbol is None:
+                            icon = None
+
+                    # Handle tombstones
                     if mesh_id == MESH_TOMBSTONE:
                         mesh_id = None
                     if fromcall == APRS_TOMBSTONE:
                         fromcall = None
 
                     logger.info(
-                        f"Observed registration beacon: {mesh_id}: {fromcall}",
+                        f"Observed registration beacon: {mesh_id}: {fromcall}, icon: {icon}",
                     )
-                    self._registry.add_registration(mesh_id, fromcall, False)
+                    self._registry.add_registration(mesh_id, fromcall, icon, False)
                 else:
                     # Not necessarily and error. Could be from a future version
                     logger.debug(
@@ -692,3 +710,9 @@ class Gateway(object):
             buffer = ""
 
         return chunks
+
+    def _send_registration_beacon(self, device_id, call_sign, icon):
+        logger.info(
+            f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
+        )
+        # self._send_aprs_message(call_sign, REGISTRATION_BEACON, device_id)
