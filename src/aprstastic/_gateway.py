@@ -340,13 +340,22 @@ class Gateway(object):
                     message_string.lower().strip(),
                 )
                 if m:
-                    call_sign = m.group(1).upper()
-                    icon = m.group(3).upper()
-                    if icon == "":
-                        icon = None
+                    # Extract the call sign
+                    call_sign = m.group(1)
+                    if call_sign is None:
+                        call_sign = ""
+                    else:
+                        call_sign = call_sign.upper()
 
-                    # Validate the icon
-                    if icon is not None and icon != "$$":
+                    # Extract and validate the icon
+                    icon = m.group(3)
+                    if icon is None:
+                        pass
+                    elif icon == "":
+                        icon = None
+                    elif icon == "$$":
+                        pass
+                    else:
                         symbol = get_symbol_code(icon)
                         if symbol is None:
                             self._send_mesh_message(
@@ -456,12 +465,14 @@ class Gateway(object):
                 m = re.search(r"^(![a-f0-9]{8})(:(\$\$|[A-Za-z0-9]{2,3}))?$", mesh_id)
                 if m:
                     mesh_id = m.group(1)
-                    icon = m.group(2)
+                    icon = m.group(3)
 
                     # Validate the icon
-                    if icon == "":
+                    if icon is None:
+                        pass
+                    elif icon == "":
                         icon = None
-                    if icon != "$$":
+                    elif icon != "$$":
                         symbol = get_symbol_code(icon)
                         if symbol is None:
                             icon = None
@@ -713,6 +724,6 @@ class Gateway(object):
 
     def _send_registration_beacon(self, device_id, call_sign, icon):
         logger.info(
-            f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
+            f"Beaconing registration {call_sign} <-> {device_id} (icon: {icon}), to {REGISTRATION_BEACON}"
         )
         # self._send_aprs_message(call_sign, REGISTRATION_BEACON, device_id)
