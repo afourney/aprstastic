@@ -572,7 +572,9 @@ class Gateway(object):
                 aprs_ts = "0" + aprs_ts + "z"
             else:
                 aprs_ts = aprs_ts + "z"
-            aprs_msg = "@" + aprs_ts + aprs_lat + icon[0] + aprs_lon + icon[1] + message
+            aprs_msg = (
+                "@" + aprs_ts + aprs_lat + symbol[0] + aprs_lon + symbol[1] + message
+            )
 
         packet = (
             fromcall
