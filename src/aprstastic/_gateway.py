@@ -728,4 +728,9 @@ class Gateway(object):
         logger.info(
             f"Beaconing registration {call_sign} <-> {device_id} (icon: {icon}), to {REGISTRATION_BEACON}"
         )
-        # self._send_aprs_message(call_sign, REGISTRATION_BEACON, device_id)
+        if icon is None:
+            self._send_aprs_message(call_sign, REGISTRATION_BEACON, device_id)
+        else:
+            self._send_aprs_message(
+                call_sign, REGISTRATION_BEACON, device_id + ":" + icon
+            )
