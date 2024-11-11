@@ -182,6 +182,8 @@ a gateway station (diamond) with the letter M overlaid.
 
 ## Overlay Symbols
 
+Replace the underscore '\_' with the desired overlay (must be A-Z, or 0-9).
+
 | code | description                       |
 | ---- | --------------------------------- |
 | A0\_ | Circle, IRLP / Echolink/WIRES     |
