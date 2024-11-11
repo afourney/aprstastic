@@ -77,7 +77,7 @@ class Gateway(object):
         self._next_serial_check_time = 0
         self._last_meshtastic_packet_time = 0
 
-        self._id_to_call_signs = CallSignRegistry(config.get("data_dir"))
+        self._registry = CallSignRegistry(config.get("data_dir"))
 
     def run(self):
         # For measuring uptime
@@ -113,7 +113,7 @@ class Gateway(object):
         for node in self._interface.nodesByNum.values():
             presumptive_id = f"!{node['num']:08x}"
 
-            if presumptive_id not in self._id_to_call_signs:
+            if presumptive_id not in self._registry:
                 continue
 
             # Heard more than a day ago
@@ -121,7 +121,9 @@ class Gateway(object):
             if last_heard is None or last_heard + 3600 * 24 < time.time():
                 continue
 
-            self._filtered_call_signs.append(self._id_to_call_signs[presumptive_id])
+            self._filtered_call_signs.append(
+                self._registry[presumptive_id]["call_sign"]
+            )
 
         # Connect to APRS IS
         aprsis_passcode = self._config.get("aprsis_passcode")
@@ -269,12 +271,12 @@ class Gateway(object):
         should_announce = self._spotted(fromId)
 
         if portnum == "POSITION_APP":
-            if fromId not in self._id_to_call_signs:
+            if fromId not in self._registry:
                 return
 
             position = packet.get("decoded", {}).get("position")
             self._send_aprs_position(
-                self._id_to_call_signs[fromId],
+                self._registry[fromId]["call_sign"],
                 position.get("latitude"),
                 position.get("longitude"),
                 position.get("time"),
@@ -298,7 +300,7 @@ class Gateway(object):
 
             if message_string.strip() == "?":
                 # Different call signs for registered and non-registered devices
-                if fromId not in self._id_to_call_signs:
+                if fromId not in self._registry:
                     self._send_mesh_message(
                         fromId,
                         "Send and receive APRS messages by registering your call sign. HAM license required.\n\nReply with:\n!register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1\n\nSee https://github.com/afourney/aprstastic for more.",
@@ -327,13 +329,13 @@ class Gateway(object):
                 )
                 if m:
                     call_sign = m.group(1).upper()
-                    if fromId in self._id_to_call_signs:
+                    if fromId in self._registry:
                         # Update
-                        self._id_to_call_signs.add_registration(fromId, call_sign, True)
+                        self._registry.add_registration(fromId, call_sign, True)
                         self._send_mesh_message(fromId, "Registration updated.")
                     else:
                         # New
-                        self._id_to_call_signs.add_registration(fromId, call_sign, True)
+                        self._registry.add_registration(fromId, call_sign, True)
                         self._spotted(fromId)
                         self._send_mesh_message(
                             fromId,
@@ -356,14 +358,14 @@ class Gateway(object):
                 return
 
             if message_string.lower().strip().startswith("!unregister"):
-                if fromId not in self._id_to_call_signs:
+                if fromId not in self._registry:
                     self._send_mesh_message(
                         fromId, "Device is not registered. Nothing to do."
                     )
                     return
-                call_sign = self._id_to_call_signs[fromId]
-                self._id_to_call_signs.add_registration(fromId, None, True)
-                self._id_to_call_signs.add_registration(None, call_sign, True)
+                call_sign = self._registry[fromId]["call_sign"]
+                self._registry.add_registration(fromId, None, True)
+                self._registry.add_registration(None, call_sign, True)
 
                 if self._beacon_registrations:
                     logger.info(
@@ -382,7 +384,7 @@ class Gateway(object):
                 self._send_mesh_message(fromId, "Device unregistered.")
                 return
 
-            if fromId not in self._id_to_call_signs:
+            if fromId not in self._registry:
                 self._send_mesh_message(
                     fromId,
                     "Unknown device. HAM license required!\nRegister by replying with:\n!register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1",
@@ -394,11 +396,13 @@ class Gateway(object):
                 tocall = m.group(1)
                 self._reply_to[fromId] = tocall
                 message = m.group(3).strip()
-                self._send_aprs_message(self._id_to_call_signs[fromId], tocall, message)
+                self._send_aprs_message(
+                    self._registry[fromId]["call_sign"], tocall, message
+                )
                 return
             elif fromId in self._reply_to:
                 self._send_aprs_message(
-                    self._id_to_call_signs[fromId],
+                    self._registry[fromId]["call_sign"],
                     self._reply_to[fromId],
                     message_string,
                 )
@@ -441,7 +445,7 @@ class Gateway(object):
                     logger.info(
                         f"Observed registration beacon: {mesh_id}: {fromcall}",
                     )
-                    self._id_to_call_signs.add_registration(mesh_id, fromcall, False)
+                    self._registry.add_registration(mesh_id, fromcall, False)
                 else:
                     # Not necessarily and error. Could be from a future version
                     logger.debug(
@@ -463,8 +467,8 @@ class Gateway(object):
 
             # Figure out where the packet is going
             toId = None
-            for k in self._id_to_call_signs:
-                if tocall == self._id_to_call_signs[k].strip().upper():
+            for k in self._registry:
+                if tocall == self._registry[k]["call_sign"].strip().upper():
                     toId = k
                     break
             if toId is None:
@@ -585,10 +589,10 @@ class Gateway(object):
         """
 
         # We spotted them, but they aren't registered
-        if node_id not in self._id_to_call_signs:
+        if node_id not in self._registry:
             return False
 
-        call_sign = self._id_to_call_signs[node_id]
+        call_sign = self._registry[node_id]["call_sign"]
 
         if call_sign in self._filtered_call_signs:
             return False

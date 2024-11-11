@@ -21,6 +21,11 @@ DATABASE_FILE = "registrations.db"
 OVERRIDES_FILE = "registration_overrides.json"
 PRECOMPILED_FILE = "precompiled_registrations.json"
 
+COL_DEVICE_ID = 0
+COL_CALL_SIGN = 1
+COL_SETTINGS = 2
+COL_TIMESTAMP = 3
+
 
 class CallSignRegistry(object):
     """
@@ -142,23 +147,38 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         )
         rows = cursor.fetchall()
         for row in rows:
-            operations.append((row[0], row[1], row[2], row[3]))
+            operations.append(
+                (
+                    row[COL_DEVICE_ID],
+                    row[COL_CALL_SIGN],
+                    row[COL_SETTINGS],
+                    row[COL_TIMESTAMP],
+                )
+            )
 
         cursor.execute(
             "SELECT device_id, call_sign, settings_json, timestamp FROM LocalRegistrations;"
         )
         rows = cursor.fetchall()
         for row in rows:
-            operations.append((row[0], row[1], row[2], row[3]))
+            operations.append(
+                (
+                    row[COL_DEVICE_ID],
+                    row[COL_CALL_SIGN],
+                    row[COL_SETTINGS],
+                    row[COL_TIMESTAMP],
+                )
+            )
 
         # Sort by date, ascending
-        operations.sort(key=lambda x: x[3])
+        operations.sort(key=lambda x: x[COL_TIMESTAMP])
 
         self._merged = dict()
         for op in operations:
-            d_id = op[0]
-            cs = op[1]
-            cs_key = self._get_key(self._merged, cs)
+            d_id = op[COL_DEVICE_ID]
+            icon = op[COL_SETTINGS]
+            cs = op[COL_CALL_SIGN]
+            cs_key = self._get_device_id(self._merged, cs)
 
             # Delete the prior value(s)
             if d_id is not None and d_id in self._merged:
@@ -172,7 +192,7 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
                 continue
 
             # Update
-            self._merged[d_id] = cs
+            self._merged[d_id] = {"call_sign": cs, "icon": icon}
 
         cursor.close()
 
@@ -196,7 +216,7 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         # Return tuples in the expected format
         tuples = override_data.get("tuples")
         for t in tuples:
-            t[3] = future
+            t[COL_TIMESTAMP] = future
         return tuples
 
     def _load_precompiled(self, file_path):
@@ -256,15 +276,15 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         # Return tuples in the expected format
         tuples = precompiled_data.get("tuples")
         for t in tuples:
-            t[3] = min(now, t[3])
+            t[COL_TIMESTAMP] = min(now, t[COL_TIMESTAMP])
         return tuples
 
-    def _get_key(self, d, v):
+    def _get_device_id(self, d, call_sign):
         """
-        Return the first dictionary key that maps to a value.
+        Return the first device id that maps to the given call sign
         """
         for k in d:
-            if d[k] == v:
+            if d[k]["call_sign"] == call_sign:
                 return k
         return None
 
