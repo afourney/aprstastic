@@ -1,5 +1,7 @@
+from typing import Dict, Any
+
 # Symbol table adapted from: https://github.com/hessu/aprs-symbol-index
-APRS_SYMBOLS = {
+APRS_SYMBOLS: Dict[str, Dict[str, Any]] = {
     "A0": {
         "symbol": "\\0",
         "description": "Circle, IRLP / Echolink/WIRES",
