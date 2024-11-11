@@ -43,6 +43,10 @@ MESHTASTIC_WATCHDOG_INTERVAL = (
 APRS_TOMBSTONE = "N0NE-01"
 MESH_TOMBSTONE = "!00000000"
 
+# Icons
+DEFAULT_GATEWAY_ICON = "M&"
+DEFAULT_NODE_ICON = "/>"
+
 # For uptime
 TIME_DURATION_UNITS = (
     ("w", 60 * 60 * 24 * 7),
@@ -203,7 +207,7 @@ class Gateway(object):
                         self._send_aprs_gateway_beacon(
                             gate_lat,
                             gate_lon,
-                            gateway_beacon.get("icon", "M&"),
+                            gateway_beacon.get("icon", DEFAULT_GATEWAY_ICON),
                             "aprstastic: " + self._gateway_id,
                         )
                         self._next_beacon_time = now + GATEWAY_BEACON_INTERVAL
@@ -274,14 +278,19 @@ class Gateway(object):
             if fromId not in self._registry:
                 return
 
-            position = packet.get("decoded", {}).get("position")
-            self._send_aprs_position(
-                self._registry[fromId]["call_sign"],
-                position.get("latitude"),
-                position.get("longitude"),
-                position.get("time"),
-                "aprstastic: " + fromId,
-            )
+            # Special icon disables position sharing
+            if self._registry[fromId]["icon"] == "$$":
+                logger.info(f"{fromId} has disabled position reporting")
+            else:
+                position = packet.get("decoded", {}).get("position")
+                self._send_aprs_position(
+                    self._registry[fromId]["call_sign"],
+                    position.get("latitude"),
+                    position.get("longitude"),
+                    position.get("time"),
+                    self._registry[fromId]["icon"],
+                    "aprstastic: " + fromId,
+                )
 
         if portnum == "TEXT_MESSAGE_APP":
             message_bytes = packet["decoded"]["payload"]
@@ -535,23 +544,26 @@ class Gateway(object):
         aprs_lon_min = float((lon - aprs_lon_deg) * 60)
         return f"%03d%05.2f%s" % (aprs_lon_deg, aprs_lon_min, aprs_lon_ew)
 
-    def _send_aprs_position(self, fromcall, lat, lon, t, message):
+    def _send_aprs_position(self, fromcall, lat, lon, t, icon, message):
         message = self._truncate_message(message, MAX_APRS_POSITION_MESSAGE_LENGTH)
 
         aprs_lat = self._aprs_lat(lat)
         aprs_lon = self._aprs_lon(lon)
 
+        if icon is None or len(icon) < 2:
+            icon = DEFAULT_NODE_ICON
+
         aprs_msg = None
         if t is None:
             # No timestamp
-            aprs_msg = "=" + aprs_lat + "/" + aprs_lon + ">" + message
+            aprs_msg = "=" + aprs_lat + icon[0] + aprs_lon + icon[1] + message
         else:
             aprs_ts = datetime.utcfromtimestamp(t).strftime("%d%H%M")
             if len(aprs_ts) == 5:
                 aprs_ts = "0" + aprs_ts + "z"
             else:
                 aprs_ts = aprs_ts + "z"
-            aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
+            aprs_msg = "@" + aprs_ts + aprs_lat + icon[0] + aprs_lon + icon[1] + message
 
         packet = (
             fromcall
