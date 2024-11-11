@@ -20,6 +20,7 @@ from meshtastic.util import findPorts
 from queue import Queue, Empty
 from .__about__ import __version__
 from ._aprs_client import APRSClient
+from ._aprs_symbols import get_symbol_code
 from ._registry import CallSignRegistry
 
 logger = logging.getLogger("aprstastic")
@@ -44,8 +45,10 @@ APRS_TOMBSTONE = "N0NE-01"
 MESH_TOMBSTONE = "!00000000"
 
 # Icons
-DEFAULT_GATEWAY_ICON = "M&"
-DEFAULT_NODE_ICON = "/>"
+DEFAULT_GATEWAY_ICON = "OGM"
+DEFAULT_NODE_ICON = "MV"
+DEFAULT_GATEWAY_SYMBOL = "M&"
+DEFAULT_NODE_SYMBOL = "/>"
 
 # For uptime
 TIME_DURATION_UNITS = (
@@ -550,13 +553,19 @@ class Gateway(object):
         aprs_lat = self._aprs_lat(lat)
         aprs_lon = self._aprs_lon(lon)
 
-        if icon is None or len(icon) < 2:
+        # Get the icon
+        if icon is None:
             icon = DEFAULT_NODE_ICON
+
+        # Convert it into a symbol
+        symbol = get_symbol_code(icon)
+        if symbol is None:
+            symbol = DEFAULT_NODE_SYMBOL
 
         aprs_msg = None
         if t is None:
             # No timestamp
-            aprs_msg = "=" + aprs_lat + icon[0] + aprs_lon + icon[1] + message
+            aprs_msg = "=" + aprs_lat + symbol[0] + aprs_lon + symbol[1] + message
         else:
             aprs_ts = datetime.utcfromtimestamp(t).strftime("%d%H%M")
             if len(aprs_ts) == 5:
@@ -580,7 +589,13 @@ class Gateway(object):
     def _send_aprs_gateway_beacon(self, lat, lon, icon, message):
         aprs_lat = self._aprs_lat(lat)
         aprs_lon = self._aprs_lon(lon)
-        aprs_msg = "!" + aprs_lat + icon[0] + aprs_lon + icon[1] + message
+
+        # Convert the icon to a symbol
+        symbol = get_symbol_code(icon)
+        if symbol is None:
+            symbol = DEFAULT_GATEWAY_SYMBOL
+
+        aprs_msg = "!" + aprs_lat + symbol[0] + aprs_lon + symbol[1] + message
         packet = (
             self._gateway_call_sign + ">" + APRS_SOFTWARE_ID + ",TCPIP*:" + aprs_msg
         )
