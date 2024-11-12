@@ -83,73 +83,81 @@ def test_inserts_and_updates():
     # Add a registration 5 times, checking after each
     for i in range(1, 6):
         call_sign = f"N0CALL-{i}"
-        registry.add_registration("!00000000", call_sign, True)
+        registry.add_registration("!00000000", call_sign, None, True)
         assert len(registry) == 1
-        assert _to_dict(registry) == {"!00000000": call_sign}
-    registry.add_registration("!00000000", "N0CALL-1", True)
+        assert _to_dict(registry) == {
+            "!00000000": {"call_sign": call_sign, "icon": None}
+        }
+    registry.add_registration("!00000000", "N0CALL-1", None, True)
 
     # Now update the device IDs
     for i in range(1, 6):
         device_id = f"!0000000{i}"
-        registry.add_registration(device_id, "N0CALL-1", True)
+        registry.add_registration(device_id, "N0CALL-1", None, True)
         assert len(registry) == 1
-        assert _to_dict(registry) == {device_id: "N0CALL-1"}
-    registry.add_registration("!00000000", "N0CALL-1", True)
+        assert _to_dict(registry) == {
+            device_id: {"call_sign": "N0CALL-1", "icon": None}
+        }
+    registry.add_registration("!00000000", "N0CALL-1", None, True)
 
     # Wait a second, then do the same for beacons
     time.sleep(1.1)
     for i in range(6, 11):
         call_sign = f"N0CALL-{i}"
-        registry.add_registration("!00000000", call_sign, False)
+        registry.add_registration("!00000000", call_sign, None, False)
         assert len(registry) == 1
-        assert _to_dict(registry) == {"!00000000": call_sign}
-    registry.add_registration("!00000000", "N0CALL-1", False)
+        assert _to_dict(registry) == {
+            "!00000000": {"call_sign": call_sign, "icon": None}
+        }
+    registry.add_registration("!00000000", "N0CALL-1", None, False)
 
     for i in range(1, 6):
         device_id = f"!0000000{i}"
-        registry.add_registration(device_id, "N0CALL-1", False)
+        registry.add_registration(device_id, "N0CALL-1", None, False)
         assert len(registry) == 1
-        assert _to_dict(registry) == {device_id: "N0CALL-1"}
-    registry.add_registration("!00000000", "N0CALL-1", False)
+        assert _to_dict(registry) == {
+            device_id: {"call_sign": "N0CALL-1", "icon": None}
+        }
+    registry.add_registration("!00000000", "N0CALL-1", None, False)
 
     # Add a bunch more registrations
-    registry.add_registration("!00000002", "N0CALL-2", True)
-    registry.add_registration("!00000003", "N0CALL-3", True)
-    registry.add_registration("!00000004", "N0CALL-4", True)
-    registry.add_registration("!00000005", "N0CALL-5", False)
-    registry.add_registration("!00000006", "N0CALL-6", False)
-    registry.add_registration("!00000007", "N0CALL-7", False)
+    registry.add_registration("!00000002", "N0CALL-2", None, True)
+    registry.add_registration("!00000003", "N0CALL-3", None, True)
+    registry.add_registration("!00000004", "N0CALL-4", None, True)
+    registry.add_registration("!00000005", "N0CALL-5", None, False)
+    registry.add_registration("!00000006", "N0CALL-6", None, False)
+    registry.add_registration("!00000007", "N0CALL-7", None, False)
     assert _to_dict(registry) == {
-        "!00000000": "N0CALL-1",
-        "!00000002": "N0CALL-2",
-        "!00000003": "N0CALL-3",
-        "!00000004": "N0CALL-4",
-        "!00000005": "N0CALL-5",
-        "!00000006": "N0CALL-6",
-        "!00000007": "N0CALL-7",
+        "!00000000": {"call_sign": "N0CALL-1", "icon": None},
+        "!00000002": {"call_sign": "N0CALL-2", "icon": None},
+        "!00000003": {"call_sign": "N0CALL-3", "icon": None},
+        "!00000004": {"call_sign": "N0CALL-4", "icon": None},
+        "!00000005": {"call_sign": "N0CALL-5", "icon": None},
+        "!00000006": {"call_sign": "N0CALL-6", "icon": None},
+        "!00000007": {"call_sign": "N0CALL-7", "icon": None},
     }
 
     # Wait a second then nuke nearly everything
     time.sleep(1.1)
-    registry.add_registration("!00000002", None, True)
-    registry.add_registration(None, "N0CALL-2", True)
+    registry.add_registration("!00000002", None, None, True)
+    registry.add_registration(None, "N0CALL-2", None, True)
 
-    registry.add_registration(None, "N0CALL-3", False)
-    registry.add_registration(None, "N0CALL-4", True)
+    registry.add_registration(None, "N0CALL-3", None, False)
+    registry.add_registration(None, "N0CALL-4", None, True)
 
-    registry.add_registration("!00000005", None, False)
-    registry.add_registration(None, "N0CALL-5", False)
+    registry.add_registration("!00000005", None, None, False)
+    registry.add_registration(None, "N0CALL-5", None, False)
 
-    registry.add_registration("!00000006", None, True)
-    registry.add_registration("!00000007", None, False)
+    registry.add_registration("!00000006", None, None, True)
+    registry.add_registration("!00000007", None, None, False)
 
     assert _to_dict(registry) == {
-        "!00000000": "N0CALL-1",
+        "!00000000": {"call_sign": "N0CALL-1", "icon": None},
     }
 
     # Make sure we throw a value error if we try to add None, None
     try:
-        registry.add_registration(None, None, False)
+        registry.add_registration(None, None, None, False)
         assert False
     except ValueError:
         pass
@@ -181,42 +189,42 @@ def test_precompiled():
 
     # Now check that it looks right
     assert _to_dict(registry) == {
-        "!00000001": "N0CALL-1",
-        "!00000002": "N0CALL-2",
+        "!00000001": {"call_sign": "N0CALL-1", "icon": None},
+        "!00000002": {"call_sign": "N0CALL-2", "icon": None},
     }
 
     # And call signs are updated correctly
-    registry.add_registration("!00000001", "N0CALL-3", True)
+    registry.add_registration("!00000001", "N0CALL-3", None, True)
     assert _to_dict(registry) == {
-        "!00000001": "N0CALL-3",
-        "!00000002": "N0CALL-2",
+        "!00000001": {"call_sign": "N0CALL-3", "icon": None},
+        "!00000002": {"call_sign": "N0CALL-2", "icon": None},
     }
 
-    registry.add_registration("!00000002", "N0CALL-4", False)
+    registry.add_registration("!00000002", "N0CALL-4", None, False)
     assert _to_dict(registry) == {
-        "!00000001": "N0CALL-3",
-        "!00000002": "N0CALL-4",
+        "!00000001": {"call_sign": "N0CALL-3", "icon": None},
+        "!00000002": {"call_sign": "N0CALL-4", "icon": None},
     }
 
     # Reset
-    registry.add_registration("!00000001", "N0CALL-1", True)
-    registry.add_registration("!00000002", "N0CALL-2", False)
+    registry.add_registration("!00000001", "N0CALL-1", None, True)
+    registry.add_registration("!00000002", "N0CALL-2", None, False)
     assert _to_dict(registry) == {
-        "!00000001": "N0CALL-1",
-        "!00000002": "N0CALL-2",
+        "!00000001": {"call_sign": "N0CALL-1", "icon": None},
+        "!00000002": {"call_sign": "N0CALL-2", "icon": None},
     }
 
     # And ids are updated correctly
-    registry.add_registration("!00000003", "N0CALL-1", True)
+    registry.add_registration("!00000003", "N0CALL-1", None, True)
     assert _to_dict(registry) == {
-        "!00000003": "N0CALL-1",
-        "!00000002": "N0CALL-2",
+        "!00000003": {"call_sign": "N0CALL-1", "icon": None},
+        "!00000002": {"call_sign": "N0CALL-2", "icon": None},
     }
 
-    registry.add_registration("!00000004", "N0CALL-2", False)
+    registry.add_registration("!00000004", "N0CALL-2", None, False)
     assert _to_dict(registry) == {
-        "!00000003": "N0CALL-1",
-        "!00000004": "N0CALL-2",
+        "!00000003": {"call_sign": "N0CALL-1", "icon": None},
+        "!00000004": {"call_sign": "N0CALL-2", "icon": None},
     }
 
 
@@ -248,31 +256,31 @@ def test_overrides():
 
     # Now check that it looks right
     assert _to_dict(registry) == {
-        "!00000011": "N0CALL-1",
-        "!00000022": "N0CALL-2",
+        "!00000011": {"call_sign": "N0CALL-1", "icon": None},
+        "!00000022": {"call_sign": "N0CALL-2", "icon": None},
     }
 
     # Proper things are being overridden
-    registry.add_registration("!00000011", "N0CALL-6", True)
-    registry.add_registration("!00000022", "N0CALL-6", False)
-    registry.add_registration("!00000001", "N0CALL-1", True)
-    registry.add_registration("!00000002", "N0CALL-2", False)
+    registry.add_registration("!00000011", "N0CALL-6", None, True)
+    registry.add_registration("!00000022", "N0CALL-6", None, False)
+    registry.add_registration("!00000001", "N0CALL-1", None, True)
+    registry.add_registration("!00000002", "N0CALL-2", None, False)
     assert _to_dict(registry) == {
-        "!00000011": "N0CALL-1",
-        "!00000022": "N0CALL-2",
+        "!00000011": {"call_sign": "N0CALL-1", "icon": None},
+        "!00000022": {"call_sign": "N0CALL-2", "icon": None},
     }
 
     # Deleted things stay deleted
-    registry.add_registration("!00000033", "N0CALL-3", True)
-    registry.add_registration("!00000033", "N0CALL-3", False)
-    registry.add_registration("!00000044", "N0CALL-4", True)
-    registry.add_registration("!00000044", "N0CALL-4", False)
-    registry.add_registration("!00000055", "N0CALL-5", True)
+    registry.add_registration("!00000033", "N0CALL-3", None, True)
+    registry.add_registration("!00000033", "N0CALL-3", None, False)
+    registry.add_registration("!00000044", "N0CALL-4", None, True)
+    registry.add_registration("!00000044", "N0CALL-4", None, False)
+    registry.add_registration("!00000055", "N0CALL-5", None, True)
     print(json.dumps(_to_dict(registry), indent=4))
     assert _to_dict(registry) == {
-        "!00000011": "N0CALL-1",
-        "!00000022": "N0CALL-2",
-        "!00000055": "N0CALL-5",
+        "!00000011": {"call_sign": "N0CALL-1", "icon": None},
+        "!00000022": {"call_sign": "N0CALL-2", "icon": None},
+        "!00000055": {"call_sign": "N0CALL-5", "icon": None},
     }
 
 

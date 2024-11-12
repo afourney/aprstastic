@@ -20,6 +20,7 @@ from meshtastic.util import findPorts
 from queue import Queue, Empty
 from .__about__ import __version__
 from ._aprs_client import APRSClient
+from ._aprs_symbols import get_symbol_code
 from ._registry import CallSignRegistry
 
 logger = logging.getLogger("aprstastic")
@@ -42,6 +43,12 @@ MESHTASTIC_WATCHDOG_INTERVAL = (
 # Beacons that mean unregister
 APRS_TOMBSTONE = "N0NE-01"
 MESH_TOMBSTONE = "!00000000"
+
+# Icons
+DEFAULT_GATEWAY_ICON = "OGM"
+DEFAULT_NODE_ICON = "MV"
+DEFAULT_GATEWAY_SYMBOL = "M&"
+DEFAULT_NODE_SYMBOL = "/>"
 
 # For uptime
 TIME_DURATION_UNITS = (
@@ -77,7 +84,7 @@ class Gateway(object):
         self._next_serial_check_time = 0
         self._last_meshtastic_packet_time = 0
 
-        self._id_to_call_signs = CallSignRegistry(config.get("data_dir"))
+        self._registry = CallSignRegistry(config.get("data_dir"))
 
     def run(self):
         # For measuring uptime
@@ -113,7 +120,7 @@ class Gateway(object):
         for node in self._interface.nodesByNum.values():
             presumptive_id = f"!{node['num']:08x}"
 
-            if presumptive_id not in self._id_to_call_signs:
+            if presumptive_id not in self._registry:
                 continue
 
             # Heard more than a day ago
@@ -121,7 +128,9 @@ class Gateway(object):
             if last_heard is None or last_heard + 3600 * 24 < time.time():
                 continue
 
-            self._filtered_call_signs.append(self._id_to_call_signs[presumptive_id])
+            self._filtered_call_signs.append(
+                self._registry[presumptive_id]["call_sign"]
+            )
 
         # Connect to APRS IS
         aprsis_passcode = self._config.get("aprsis_passcode")
@@ -201,7 +210,7 @@ class Gateway(object):
                         self._send_aprs_gateway_beacon(
                             gate_lat,
                             gate_lon,
-                            gateway_beacon.get("icon", "M&"),
+                            gateway_beacon.get("icon", DEFAULT_GATEWAY_ICON),
                             "aprstastic: " + self._gateway_id,
                         )
                         self._next_beacon_time = now + GATEWAY_BEACON_INTERVAL
@@ -269,17 +278,22 @@ class Gateway(object):
         should_announce = self._spotted(fromId)
 
         if portnum == "POSITION_APP":
-            if fromId not in self._id_to_call_signs:
+            if fromId not in self._registry:
                 return
 
-            position = packet.get("decoded", {}).get("position")
-            self._send_aprs_position(
-                self._id_to_call_signs[fromId],
-                position.get("latitude"),
-                position.get("longitude"),
-                position.get("time"),
-                "aprstastic: " + fromId,
-            )
+            # Special icon disables position sharing
+            if self._registry[fromId]["icon"] == "$$":
+                logger.info(f"{fromId} has disabled position reporting")
+            else:
+                position = packet.get("decoded", {}).get("position")
+                self._send_aprs_position(
+                    self._registry[fromId]["call_sign"],
+                    position.get("latitude"),
+                    position.get("longitude"),
+                    position.get("time"),
+                    self._registry[fromId]["icon"],
+                    "aprstastic: " + fromId,
+                )
 
         if portnum == "TEXT_MESSAGE_APP":
             message_bytes = packet["decoded"]["payload"]
@@ -298,7 +312,7 @@ class Gateway(object):
 
             if message_string.strip() == "?":
                 # Different call signs for registered and non-registered devices
-                if fromId not in self._id_to_call_signs:
+                if fromId not in self._registry:
                     self._send_mesh_message(
                         fromId,
                         "Send and receive APRS messages by registering your call sign. HAM license required.\n\nReply with:\n!register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1\n\nSee https://github.com/afourney/aprstastic for more.",
@@ -322,18 +336,43 @@ class Gateway(object):
             if message_string.lower().strip().startswith("!register"):
                 # Allow operatores to join
                 m = re.search(
-                    r"^!register:?\s+([a-z0-9]{4,7}\-[0-9]{1,2})$",
+                    r"^!register:?\s+([a-z0-9]{4,7}\-[0-9]{1,2})(\s+(\$\$|[a-zA-Z0-9]{2,3}))?$",
                     message_string.lower().strip(),
                 )
                 if m:
-                    call_sign = m.group(1).upper()
-                    if fromId in self._id_to_call_signs:
+                    # Extract the call sign
+                    call_sign = m.group(1)
+                    if call_sign is None:
+                        call_sign = ""
+                    else:
+                        call_sign = call_sign.upper()
+
+                    # Extract and validate the icon
+                    icon = m.group(3)
+                    if icon is None:
+                        pass
+                    elif icon == "":
+                        icon = None
+                    elif icon == "$$":
+                        pass
+                    else:
+                        icon = icon.upper()
+                        symbol = get_symbol_code(icon)
+                        if symbol is None:
+                            self._send_mesh_message(
+                                fromId,
+                                "Invalid icon. See: https://github.com/afourney/aprstastic/blob/main/APRS_SYMBOLS.md",
+                            )
+                            return
+
+                    # Update the database
+                    if fromId in self._registry:
                         # Update
-                        self._id_to_call_signs.add_registration(fromId, call_sign, True)
+                        self._registry.add_registration(fromId, call_sign, icon, True)
                         self._send_mesh_message(fromId, "Registration updated.")
                     else:
                         # New
-                        self._id_to_call_signs.add_registration(fromId, call_sign, True)
+                        self._registry.add_registration(fromId, call_sign, icon, True)
                         self._spotted(fromId)
                         self._send_mesh_message(
                             fromId,
@@ -342,12 +381,8 @@ class Gateway(object):
                     self._spotted(fromId)  # Run this again to update subscriptions
 
                     # Beacon the registration to APRS-IS to facilitate building a shared roaming mapping
-                    # which will be queried in future updates to aprstastic.
                     if self._beacon_registrations:
-                        logger.info(
-                            f"Beaconing registration {call_sign} <-> {fromId}, to {REGISTRATION_BEACON}"
-                        )
-                        self._send_aprs_message(call_sign, REGISTRATION_BEACON, fromId)
+                        self._send_registration_beacon(fromId, call_sign, icon)
                 else:
                     self._send_mesh_message(
                         fromId,
@@ -356,33 +391,27 @@ class Gateway(object):
                 return
 
             if message_string.lower().strip().startswith("!unregister"):
-                if fromId not in self._id_to_call_signs:
+                if fromId not in self._registry:
                     self._send_mesh_message(
                         fromId, "Device is not registered. Nothing to do."
                     )
                     return
-                call_sign = self._id_to_call_signs[fromId]
-                self._id_to_call_signs.add_registration(fromId, None, True)
-                self._id_to_call_signs.add_registration(None, call_sign, True)
+                call_sign = self._registry[fromId]["call_sign"]
+                self._registry.add_registration(fromId, None, None, True)
+                self._registry.add_registration(None, call_sign, None, True)
 
                 if self._beacon_registrations:
-                    logger.info(
-                        f"Beaconing unregistration {APRS_TOMBSTONE} <-> {fromId}, to {REGISTRATION_BEACON}"
-                    )
-                    self._send_aprs_message(APRS_TOMBSTONE, REGISTRATION_BEACON, fromId)
-                    logger.info(
-                        f"Beaconing unregistration {call_sign} <-> {MESH_TOMBSTONE}, to {REGISTRATION_BEACON}"
-                    )
-                    self._send_aprs_message(
-                        call_sign, REGISTRATION_BEACON, MESH_TOMBSTONE
-                    )
+                    self._send_registration_beacon(fromId, APRS_TOMBSTONE, None)
+                    self._send_registration_beacon(MESH_TOMBSTONE, call_sign, None)
 
-                self._filtered_call_signs.remove(call_sign)
+                if call_sign in self._filtered_call_signs:
+                    self._filtered_call_signs.remove(call_sign)
+
                 self._aprs_client.set_filter("g/" + "/".join(self._filtered_call_signs))
                 self._send_mesh_message(fromId, "Device unregistered.")
                 return
 
-            if fromId not in self._id_to_call_signs:
+            if fromId not in self._registry:
                 self._send_mesh_message(
                     fromId,
                     "Unknown device. HAM license required!\nRegister by replying with:\n!register [CALLSIGN]-[SSID]\nE.g.,\n!register N0CALL-1",
@@ -394,11 +423,13 @@ class Gateway(object):
                 tocall = m.group(1)
                 self._reply_to[fromId] = tocall
                 message = m.group(3).strip()
-                self._send_aprs_message(self._id_to_call_signs[fromId], tocall, message)
+                self._send_aprs_message(
+                    self._registry[fromId]["call_sign"], tocall, message
+                )
                 return
             elif fromId in self._reply_to:
                 self._send_aprs_message(
-                    self._id_to_call_signs[fromId],
+                    self._registry[fromId]["call_sign"],
                     self._reply_to[fromId],
                     message_string,
                 )
@@ -432,16 +463,32 @@ class Gateway(object):
             # Is this a registration beacon?
             if tocall == REGISTRATION_BEACON:
                 mesh_id = packet.get("message_text", "").lower().strip()
-                if re.search(r"^![a-f0-9]{8}$", mesh_id):
+                m = re.search(r"^(![a-f0-9]{8})(:(\$\$|[A-Za-z0-9]{2,3}))?$", mesh_id)
+                if m:
+                    mesh_id = m.group(1)
+                    icon = m.group(3)
+
+                    # Validate the icon
+                    if icon is None:
+                        pass
+                    elif icon == "":
+                        icon = None
+                    elif icon != "$$":
+                        icon = icon.upper()
+                        symbol = get_symbol_code(icon)
+                        if symbol is None:
+                            icon = None
+
+                    # Handle tombstones
                     if mesh_id == MESH_TOMBSTONE:
                         mesh_id = None
                     if fromcall == APRS_TOMBSTONE:
                         fromcall = None
 
                     logger.info(
-                        f"Observed registration beacon: {mesh_id}: {fromcall}",
+                        f"Observed registration beacon: {mesh_id}: {fromcall}, icon: {icon}",
                     )
-                    self._id_to_call_signs.add_registration(mesh_id, fromcall, False)
+                    self._registry.add_registration(mesh_id, fromcall, icon, False)
                 else:
                     # Not necessarily and error. Could be from a future version
                     logger.debug(
@@ -463,8 +510,8 @@ class Gateway(object):
 
             # Figure out where the packet is going
             toId = None
-            for k in self._id_to_call_signs:
-                if tocall == self._id_to_call_signs[k].strip().upper():
+            for k in self._registry:
+                if tocall == self._registry[k]["call_sign"].strip().upper():
                     toId = k
                     break
             if toId is None:
@@ -531,23 +578,34 @@ class Gateway(object):
         aprs_lon_min = float((lon - aprs_lon_deg) * 60)
         return f"%03d%05.2f%s" % (aprs_lon_deg, aprs_lon_min, aprs_lon_ew)
 
-    def _send_aprs_position(self, fromcall, lat, lon, t, message):
+    def _send_aprs_position(self, fromcall, lat, lon, t, icon, message):
         message = self._truncate_message(message, MAX_APRS_POSITION_MESSAGE_LENGTH)
 
         aprs_lat = self._aprs_lat(lat)
         aprs_lon = self._aprs_lon(lon)
 
+        # Get the icon
+        if icon is None:
+            icon = DEFAULT_NODE_ICON
+
+        # Convert it into a symbol
+        symbol = get_symbol_code(icon)
+        if symbol is None:
+            symbol = DEFAULT_NODE_SYMBOL
+
         aprs_msg = None
         if t is None:
             # No timestamp
-            aprs_msg = "=" + aprs_lat + "/" + aprs_lon + ">" + message
+            aprs_msg = "=" + aprs_lat + symbol[0] + aprs_lon + symbol[1] + message
         else:
             aprs_ts = datetime.utcfromtimestamp(t).strftime("%d%H%M")
             if len(aprs_ts) == 5:
                 aprs_ts = "0" + aprs_ts + "z"
             else:
                 aprs_ts = aprs_ts + "z"
-            aprs_msg = "@" + aprs_ts + aprs_lat + "/" + aprs_lon + ">" + message
+            aprs_msg = (
+                "@" + aprs_ts + aprs_lat + symbol[0] + aprs_lon + symbol[1] + message
+            )
 
         packet = (
             fromcall
@@ -564,7 +622,13 @@ class Gateway(object):
     def _send_aprs_gateway_beacon(self, lat, lon, icon, message):
         aprs_lat = self._aprs_lat(lat)
         aprs_lon = self._aprs_lon(lon)
-        aprs_msg = "!" + aprs_lat + icon[0] + aprs_lon + icon[1] + message
+
+        # Convert the icon to a symbol
+        symbol = get_symbol_code(icon)
+        if symbol is None:
+            symbol = DEFAULT_GATEWAY_SYMBOL
+
+        aprs_msg = "!" + aprs_lat + symbol[0] + aprs_lon + symbol[1] + message
         packet = (
             self._gateway_call_sign + ">" + APRS_SOFTWARE_ID + ",TCPIP*:" + aprs_msg
         )
@@ -585,10 +649,10 @@ class Gateway(object):
         """
 
         # We spotted them, but they aren't registered
-        if node_id not in self._id_to_call_signs:
+        if node_id not in self._registry:
             return False
 
-        call_sign = self._id_to_call_signs[node_id]
+        call_sign = self._registry[node_id]["call_sign"]
 
         if call_sign in self._filtered_call_signs:
             return False
@@ -659,3 +723,14 @@ class Gateway(object):
             buffer = ""
 
         return chunks
+
+    def _send_registration_beacon(self, device_id, call_sign, icon):
+        logger.info(
+            f"Beaconing registration {call_sign} <-> {device_id} (icon: {icon}), to {REGISTRATION_BEACON}"
+        )
+        if icon is None:
+            self._send_aprs_message(call_sign, REGISTRATION_BEACON, device_id)
+        else:
+            self._send_aprs_message(
+                call_sign, REGISTRATION_BEACON, device_id + ":" + icon
+            )
