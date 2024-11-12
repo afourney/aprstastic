@@ -13,6 +13,8 @@
 
 ## New!
 
+:fire: Change your node's icons. See [APRS_SYMBOLS.md](https://github.com/afourney/aprstastic/blob/main/APRS_SYMBOLS.md) for details.
+
 :fire: 2-minute [YouTube demo](https://www.youtube.com/watch?v=qUvpZUwl-cY)
 
 :fire: Over-the-air discovery and registration now supported. See image below.
