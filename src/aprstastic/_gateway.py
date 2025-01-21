@@ -97,7 +97,7 @@ class Gateway(object):
         if self._interface is None:
             raise ValueError("No meshtastic device detected or specified.")
 
-        def on_recv(packet):
+        def on_recv(packet, interface=None):
             self._mesh_rx_queue.put(packet)
 
         pubsub.pub.subscribe(on_recv, MQTT_TOPIC)
