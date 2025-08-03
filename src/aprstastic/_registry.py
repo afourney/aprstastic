@@ -177,6 +177,7 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
         for op in operations:
             d_id = op[COL_DEVICE_ID]
             icon = op[COL_SETTINGS]
+            timestamp = op[COL_TIMESTAMP]
             cs = op[COL_CALL_SIGN]
             cs_key = self._get_device_id(self._merged, cs)
 
@@ -192,7 +193,7 @@ CREATE TABLE IF NOT EXISTS BeaconedRegistrations (
                 continue
 
             # Update
-            self._merged[d_id] = {"call_sign": cs, "icon": icon}
+            self._merged[d_id] = {"call_sign": cs, "icon": icon, "timestamp": timestamp}
 
         cursor.close()
 
